@@ -16,6 +16,7 @@ pub enum Token {
     Or,
     Not,
     Equal,
+    NotEqual,
     EqualEqual,
     Less,
     LessEqual,
@@ -30,6 +31,5 @@ pub enum Token {
     Let,
     If,
     Else,
-    While,
-    For,
+    Unit,
 }

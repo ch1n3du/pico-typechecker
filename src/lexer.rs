@@ -7,7 +7,7 @@ use chumsky::prelude::*;
 type Span = Range<usize>;
 type Spanned<T> = (T, Span);
 
-fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
+pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
     let op = choice((
         just('+').to(Token::Plus),
         just("->").to(Token::RArrow),
@@ -18,6 +18,8 @@ fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
         just(',').to(Token::Comma),
         just(':').to(Token::Colon),
         just(';').to(Token::SemiColon),
+        just("!=").to(Token::NotEqual),
+        just('!').to(Token::Not),
         just("==").to(Token::EqualEqual),
         just('=').to(Token::Equal),
         just("<=").to(Token::LessEqual),
@@ -27,6 +29,7 @@ fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
     ));
 
     let grouping = choice((
+        just("()").to(Token::Unit),
         just('(').to(Token::LeftParen),
         just(')').to(Token::RightParen),
         just('{').to(Token::LeftBrace),
@@ -67,9 +70,6 @@ fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
         "if" => Token::If,
         "else" => Token::Else,
         "let" => Token::Let,
-        "while" => Token::While,
-        "for" => Token::For,
-        "not" => Token::Not,
         "and" => Token::And,
         "or" => Token::Or,
         _ => Token::Identifier { value: s },
@@ -88,7 +88,7 @@ mod tests {
 
     #[test]
     fn basic() {
-        let tokens = lexer().parse(". + - / * , : ; = == < <= > >= ( ) { } -> not and or funk let if else while for this_is_an_identifier 1234 true false \"this is a string\"").unwrap();
+        let tokens = lexer().parse(". + - / * , : ; = == < <= > >= ( ) { } -> ! and or funk let if else this_is_an_identifier 1234 true false \"this is a string\" ()").unwrap();
         let expected = vec![
             Token::Dot,
             Token::Plus,
@@ -116,8 +116,6 @@ mod tests {
             Token::Let,
             Token::If,
             Token::Else,
-            Token::While,
-            Token::For,
             Token::Identifier {
                 value: "this_is_an_identifier".to_string(),
             },
@@ -133,6 +131,7 @@ mod tests {
             Token::String {
                 value: "this is a string".to_string(),
             },
+            Token::Unit,
         ];
 
         for (i, tok) in tokens.iter().enumerate() {

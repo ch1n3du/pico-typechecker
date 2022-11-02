@@ -1,48 +1,44 @@
-use crate::token::Token;
-
+#[derive(Debug, Clone)]
 pub enum Expr {
     /// Variable identifier like "x".
     Identifier(String),
     Value(Value),
     Grouping(Box<Expr>),
     Unary {
-        op: Token,
+        op: Op,
         rhs: Box<Expr>,
     },
     Binary {
         lhs: Box<Expr>,
-        op: Token,
+        op: Op,
         rhs: Box<Expr>,
-    },
-    If {
-        predicate: Box<Expr>,
-        truthy_branch: Box<Expr>,
-        falsy_branch: Option<Box<Expr>>,
-    },
-    Assignment {
-        name: String,
-        value: Box<Expr>,
     },
     Let {
         name: String,
         tipo: Option<Tipo>,
-        initializer: Option<Box<Expr>>,
+        initializer: Box<Expr>,
+        // then: Box<Expr>,
+    },
+    If {
+        condition: Box<Expr>,
+        truthy_branch: Box<Expr>,
+        falsy_branch: Option<Box<Expr>>,
     },
     Block(Vec<Expr>),
-    While {
-        condition: Box<Expr>,
-        body: Box<Expr>,
-    },
-    Ignore(Box<Expr>),
+    // Call {
+    // callee: Box<Expr>,
+    // args: Vec<Expr>,
+    // },
 }
 
 pub enum Stmt {
     If(Expr),
 }
 
+#[derive(Debug, Clone)]
 pub enum Value {
-    Number(f64),
-    String(String),
+    Num(i64),
+    Str(String),
     Bool(bool),
     Unit,
 }
@@ -51,8 +47,8 @@ impl Value {
     pub fn get_tipo(&self) -> Tipo {
         use Value::*;
         match self {
-            Number(_) => Tipo::new("number"),
-            String(_) => Tipo::new("string"),
+            Num(_) => Tipo::new("number"),
+            Str(_) => Tipo::new("string"),
             Bool(_) => Tipo::new("bool"),
             Unit => Tipo::new("__unit__"),
         }
@@ -75,11 +71,18 @@ impl Value {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum Op {
     Plus,
     Minus,
     Divide,
     Multiply,
+    EqualEqual,
+    NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
     And,
     Or,
     Not,

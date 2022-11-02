@@ -30,3 +30,7 @@ funk fib(n: number) {
     }
 }
 ```
+
+## Nov 2nd
+
+Got basic parsing working
