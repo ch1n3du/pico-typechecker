@@ -1,5 +1,6 @@
-mod ast;
-mod lexer;
-mod parser;
-mod token;
-mod typechecker;
+pub mod ast;
+pub mod lexer;
+pub mod parser;
+pub mod tipo;
+pub mod token;
+pub mod typechecker;

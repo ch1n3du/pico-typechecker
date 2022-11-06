@@ -1,4 +1,6 @@
-#[derive(Debug, Clone)]
+use crate::tipo::Tipo;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expr {
     /// Variable identifier like "x".
     Identifier(String),
@@ -17,61 +19,60 @@ pub enum Expr {
         name: String,
         tipo: Option<Tipo>,
         initializer: Box<Expr>,
-        // then: Box<Expr>,
+        then: Box<Expr>,
     },
     If {
         condition: Box<Expr>,
         truthy_branch: Box<Expr>,
         falsy_branch: Option<Box<Expr>>,
     },
-    Block(Vec<Expr>),
-    // Call {
-    // callee: Box<Expr>,
-    // args: Vec<Expr>,
-    // },
+    Funk {
+        name: String,
+        fn_: Function,
+        // then: Box<Expr>,
+    },
+    Fn(Function),
+    Block(Box<Expr>),
 }
 
-pub enum Stmt {
-    If(Expr),
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Function {
+    pub params: Vec<(String, Tipo)>,
+    pub ret: Tipo,
+    pub body: Box<Expr>,
 }
 
-#[derive(Debug, Clone)]
+impl Function {
+    pub fn get_tipo(&self) -> Tipo {
+        let args = self.params.iter().map(|(_, t)| t).cloned().collect();
+
+        Tipo::new_fn(args, self.ret.clone())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
     Num(i64),
     Str(String),
     Bool(bool),
     Unit,
+    Fn(Function),
 }
 
 impl Value {
     pub fn get_tipo(&self) -> Tipo {
         use Value::*;
         match self {
-            Num(_) => Tipo::new("number"),
-            Str(_) => Tipo::new("string"),
-            Bool(_) => Tipo::new("bool"),
-            Unit => Tipo::new("__unit__"),
+            Num(_) => Tipo::int_type(),
+            Str(_) => Tipo::string_type(),
+            Bool(_) => Tipo::bool_type(),
+            Unit => Tipo::unit_type(),
+            Fn(_) => todo!(),
         }
-    }
-
-    pub fn number_type() -> Tipo {
-        Tipo::new("number")
-    }
-
-    pub fn string_type() -> Tipo {
-        Tipo::new("string")
-    }
-
-    pub fn bool_type() -> Tipo {
-        Tipo::new("bool")
-    }
-
-    pub fn unit_type() -> Tipo {
-        Tipo::new("__unit__")
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Op {
     Plus,
     Minus,
@@ -88,15 +89,23 @@ pub enum Op {
     Not,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Tipo {
-    pub name: String,
-}
-
-impl Tipo {
-    pub fn new(name: &str) -> Tipo {
-        Tipo {
-            name: name.to_string(),
+impl std::fmt::Display for Op {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use Op::*;
+        match self {
+            Plus => write!(f, "+"),
+            Minus => write!(f, "-"),
+            Multiply => write!(f, "*"),
+            Divide => write!(f, "/"),
+            EqualEqual => write!(f, "=="),
+            NotEqual => write!(f, "!="),
+            Less => write!(f, "<"),
+            LessEqual => write!(f, "<="),
+            Greater => write!(f, ">"),
+            GreaterEqual => write!(f, ">="),
+            And => write!(f, "&&"),
+            Or => write!(f, "||"),
+            Not => write!(f, "!"),
         }
     }
 }

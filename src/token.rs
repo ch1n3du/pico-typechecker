@@ -32,4 +32,5 @@ pub enum Token {
     If,
     Else,
     Unit,
+    Fn,
 }

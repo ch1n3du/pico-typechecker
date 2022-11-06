@@ -1,5 +1,3 @@
-use std::os::raw;
-
 /// This module contains a parser for the language
 /// Language Specification in  Pseudo EBNF
 /// TODO Add If/Else
@@ -26,11 +24,12 @@ use std::os::raw;
 use chumsky::prelude::*;
 
 use crate::{
-    ast::{Expr, Op, Tipo, Value},
+    ast::{Expr, Function, Op, Value},
+    tipo::Tipo,
     token::Token,
 };
 
-fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
+pub fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
     recursive(|raw_expr| {
         // primary ::= IDENTIFIER | NUMBER | STRING | BOOL | UNIT ;
         let primary = select! {
@@ -39,7 +38,11 @@ fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
             Token::String { value } => Expr::Value(Value::Str(value)),
             Token::Bool { value } => Expr::Value(Value::Bool(value.parse().unwrap())),
             Token::Identifier { value } => Expr::Identifier(value)
-        };
+        }
+        .or(raw_expr
+            .clone()
+            .delimited_by(just(Token::LeftParen), just(Token::RightParen))
+            .map(|e| Expr::Grouping(Box::new(e))));
 
         // unary ::= (- | not) unary | primary ;
         let unary_op = choice((
@@ -112,7 +115,8 @@ fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
                 lhs: Box::new(lhs),
                 op,
                 rhs: Box::new(rhs),
-            });
+            })
+            .labelled("equality");
 
         // logicalAnd ::= equality (( and | or ) equality)* ;
         let logical_and = equality
@@ -122,7 +126,8 @@ fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
                 lhs: Box::new(lhs),
                 op,
                 rhs: Box::new(rhs),
-            });
+            })
+            .labelled("logical_and");
 
         // logicalOr ::= logicalAnd (or logicalAnd)* ;
         let logical_or = logical_and
@@ -132,26 +137,93 @@ fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
                 lhs: Box::new(lhs),
                 op,
                 rhs: Box::new(rhs),
+            })
+            .labelled("logical_or");
+
+        let block = raw_expr
+            .clone()
+            .delimited_by(just(Token::LeftBrace), just(Token::RightBrace))
+            .map(|e| Expr::Block(Box::new(e)))
+            .labelled("block");
+
+        let if_ = just(Token::If)
+            .ignore_then(logical_or.clone())
+            .then(block.clone())
+            .then(just(Token::Else).ignore_then(block.clone()).or_not())
+            .map(|((condition, truthy_branch), falsy_branch)| Expr::If {
+                condition: Box::new(condition),
+                truthy_branch: Box::new(truthy_branch),
+                falsy_branch: falsy_branch.map(Box::new),
+            })
+            .labelled("If Expression");
+
+        let ident = select! {Token::Identifier { value } => value.clone()}.labelled("Identifier");
+
+        // annotation ::= ':' IDENT
+        let annotation = just(Token::Colon)
+            .ignore_then(ident)
+            .map(|name| Tipo::new(&name))
+            .labelled("Type Annotation");
+
+        // letExpr ::= 'let' IDENT '=' Expr ; Expr
+        let let_ = just(Token::Let)
+            .ignore_then(ident)
+            .then(annotation.clone().or_not())
+            .then_ignore(just(Token::Equal))
+            .then(raw_expr.clone())
+            .then_ignore(just(Token::SemiColon))
+            .then(raw_expr.clone())
+            .map(|(((name, tipo), initializer), then)| Expr::Let {
+                name,
+                tipo,
+                initializer: Box::new(initializer),
+                then: Box::new(then),
+            })
+            .labelled("Let Expression");
+
+        // params ::= ( ((ident annotation) (',' ident annotation)* ','?)?   )
+        let params = ident
+            .then(annotation.clone())
+            .separated_by(just(Token::Comma))
+            .then_ignore(just(Token::Comma).or_not())
+            .delimited_by(just(Token::LeftParen), just(Token::RightParen))
+            .labelled("Function Parameters");
+
+        // funkAnnotation ::= '->' IDENT
+        let funk_annotation = just(Token::RArrow)
+            .ignore_then(ident)
+            .map(|name| Tipo::new(&name))
+            .or_not()
+            .labelled("Funk Type Annotation");
+
+        // funkDecl ::= funk IDENT params block
+        let funk = params
+            .then(funk_annotation)
+            .then(block.clone())
+            .map(|((params, ret), body)| {
+                let ret = ret.unwrap_or(Tipo::unit_type());
+
+                Function {
+                    params,
+                    ret,
+                    body: Box::new(body),
+                }
+            })
+            .labelled("Function body");
+
+        let funk_decl = just(Token::Funk)
+            .ignore_then(ident.clone())
+            .then(funk.clone())
+            // .then(raw_expr)
+            // .map(|((name, funk), then)| Expr::Funk {
+            .map(|(name, funk)| Expr::Funk {
+                name,
+                fn_: funk,
+                // then: Box::new(then),
             });
 
-        logical_or
+        let fn_ = just(Token::Fn).ignore_then(funk).map(Expr::Fn);
+
+        choice((block, let_, logical_or, if_, funk_decl, fn_))
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use chumsky::Parser;
-
-    use crate::{lexer::lexer, token::Token};
-    #[test]
-    fn basic() {
-        let toks: Vec<Token> = lexer()
-            .parse("2 * 3 == 4 / 3;")
-            .unwrap()
-            .into_iter()
-            .map(|p| p.0)
-            .collect();
-        let exprs = super::expr_parser().parse(toks);
-        panic!("{exprs:?}")
-    }
 }

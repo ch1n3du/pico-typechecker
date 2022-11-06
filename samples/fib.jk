@@ -1,0 +1,15 @@
+funk fib(n: int) -> int {
+    whence n < 2 {
+        1
+    } else {
+        fib(n-1) + fib(n-1)
+    }
+}
+
+funk main() {
+    [1, 2, 3, 4, 5].map(fn (n: int) -> int { n * n })
+
+    whilst true {
+        print("Hello world")
+    }
+}

@@ -29,7 +29,7 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
     ));
 
     let grouping = choice((
-        just("()").to(Token::Unit),
+        // just("()").to(Token::Unit),
         just('(').to(Token::LeftParen),
         just(')').to(Token::RightParen),
         just('{').to(Token::LeftBrace),
@@ -67,6 +67,7 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
 
     let keyword = text::ident().map(|s: String| match s.as_str() {
         "funk" => Token::Funk,
+        "fn" => Token::Fn,
         "if" => Token::If,
         "else" => Token::Else,
         "let" => Token::Let,
@@ -80,67 +81,4 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
         .padded()
         .repeated()
         .then_ignore(end())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn basic() {
-        let tokens = lexer().parse(". + - / * , : ; = == < <= > >= ( ) { } -> ! and or funk let if else this_is_an_identifier 1234 true false \"this is a string\" ()").unwrap();
-        let expected = vec![
-            Token::Dot,
-            Token::Plus,
-            Token::Minus,
-            Token::RSlash,
-            Token::Star,
-            Token::Comma,
-            Token::Colon,
-            Token::SemiColon,
-            Token::Equal,
-            Token::EqualEqual,
-            Token::Less,
-            Token::LessEqual,
-            Token::Greater,
-            Token::GreaterEqual,
-            Token::LeftParen,
-            Token::RightParen,
-            Token::LeftBrace,
-            Token::RightBrace,
-            Token::RArrow,
-            Token::Not,
-            Token::And,
-            Token::Or,
-            Token::Funk,
-            Token::Let,
-            Token::If,
-            Token::Else,
-            Token::Identifier {
-                value: "this_is_an_identifier".to_string(),
-            },
-            Token::Number {
-                value: "1234".to_string(),
-            },
-            Token::Bool {
-                value: "true".to_string(),
-            },
-            Token::Bool {
-                value: "false".to_string(),
-            },
-            Token::String {
-                value: "this is a string".to_string(),
-            },
-            Token::Unit,
-        ];
-
-        for (i, tok) in tokens.iter().enumerate() {
-            let expected_tok = &expected[i];
-            let tok_got = &tok.0;
-            assert_eq!(
-                tok_got, expected_tok,
-                "[{i}]: Expected: {expected_tok:?} but got {tok_got:?}"
-            )
-        }
-    }
 }
