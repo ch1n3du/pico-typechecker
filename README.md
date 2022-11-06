@@ -28,15 +28,16 @@ This is a very simple typechecker with limited inference.
 let x = "stringy";
 let y = 1213;
 
-whilst true {
-    print("fuck the opps");
-}
 
-funk fib(n: int) -> int {
-    if  n < 2 {
+funk collatz(n: int) -> int {
+    print(n);
+
+    if  n == 1 {
         1
+    } else if (n % 2) == 0{
+        collatz(n / 2)
     } else {
-        fib(n-1) + fib(n-2)
+        collatz(n * 3 + 1)
     }
 }
 ```
