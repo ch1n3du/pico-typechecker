@@ -30,15 +30,15 @@ let y = 1213;
 
 
 funk collatz(n: int) -> int {
-    print(n);
+  print(n);
 
-    if  n == 1 {
-        1
-    } else if (n % 2) == 0{
-        collatz(n / 2)
-    } else {
-        collatz(n * 3 + 1)
-    }
+  if  n == 1 {
+    1
+  } else if (n % 2) == 0{
+    collatz(n / 2)
+  } else {
+    collatz(n * 3 + 1)
+  }
 }
 ```
 
