@@ -32,7 +32,7 @@ let y = 1213;
 funk collatz(n: int) -> int {
   print(n);
 
-  if  n == 1 {
+  if n == 1 {
     1
   } else if (n % 2) == 0{
     collatz(n / 2)
