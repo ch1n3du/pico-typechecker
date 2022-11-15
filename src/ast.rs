@@ -1,75 +1,58 @@
-use crate::tipo::Tipo;
+use crate::{function::Function, lexer::Span, tipo::Tipo, value::Value};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expr {
     /// Variable identifier like "x".
-    Identifier(String),
-    Value(Value),
-    Grouping(Box<Expr>),
+    Identifier {
+        value: String,
+        location: Span,
+    },
+    Value {
+        value: Value,
+        location: Span,
+    },
+    Grouping {
+        expr: Box<Expr>,
+        location: Span,
+    },
     Unary {
         op: Op,
         rhs: Box<Expr>,
+        location: Span,
     },
     Binary {
         lhs: Box<Expr>,
         op: Op,
         rhs: Box<Expr>,
+        location: Span,
     },
     Let {
         name: String,
-        tipo: Option<Tipo>,
+        let_tipo: Option<Tipo>,
         initializer: Box<Expr>,
         then: Box<Expr>,
+        location: Span,
     },
     If {
         condition: Box<Expr>,
         truthy_branch: Box<Expr>,
         falsy_branch: Option<Box<Expr>>,
+        location: Span,
     },
     Funk {
         name: String,
         fn_: Function,
         // then: Box<Expr>,
+        location: Span,
     },
-    Fn(Function),
-    Block(Box<Expr>),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Function {
-    pub params: Vec<(String, Tipo)>,
-    pub ret: Tipo,
-    pub body: Box<Expr>,
-}
-
-impl Function {
-    pub fn get_tipo(&self) -> Tipo {
-        let args = self.params.iter().map(|(_, t)| t).cloned().collect();
-
-        Tipo::new_fn(args, self.ret.clone())
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Value {
-    Num(i64),
-    Str(String),
-    Bool(bool),
-    Unit,
-    Fn(Function),
-}
-
-impl Value {
-    pub fn get_tipo(&self) -> Tipo {
-        use Value::*;
-        match self {
-            Num(_) => Tipo::int_type(),
-            Str(_) => Tipo::string_type(),
-            Bool(_) => Tipo::bool_type(),
-            Unit => Tipo::unit_type(),
-            Fn(_) => todo!(),
-        }
-    }
+    Fn {
+        fn_: Function,
+        location: Span,
+    },
+    Block {
+        expr: Box<Expr>,
+        location: Span,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

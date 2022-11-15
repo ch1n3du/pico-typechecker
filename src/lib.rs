@@ -1,6 +1,10 @@
 pub mod ast;
+pub mod compiler;
+pub mod function;
 pub mod lexer;
 pub mod parser;
 pub mod tipo;
 pub mod token;
 pub mod typechecker;
+pub mod value;
+pub mod vm;

@@ -1,21 +1,18 @@
 use chumsky::Parser;
 use pico_typechecker::{
-    ast::{Expr, Function},
-    lexer::lexer,
+    ast::Expr,
+    function::Function,
+    lexer::{lexer, Span},
     parser,
     tipo::Tipo,
     token::Token,
 };
 
 fn try_parsing(src: &str) -> Expr {
-    let toks: Vec<Token> = lexer()
-        .parse(src)
+    let toks: Vec<(Token, Span)> = lexer().parse(src).unwrap();
+    parser::expr_parser()
+        .parse(chumsky::Stream::from_iter(1..1, toks.into_iter()))
         .unwrap()
-        .into_iter()
-        .map(|p| p.0)
-        .collect();
-
-    parser::expr_parser().parse(toks).unwrap()
 }
 
 #[test]
@@ -32,13 +29,19 @@ fn can_parse_funk_expr() {
     let fn_ = Function {
         params: vec![("n".to_string(), Tipo::int_type())],
         ret: Tipo::int_type(),
-        body: Box::new(Expr::Block(Box::new(Expr::Identifier("n".to_string())))),
+        body: Box::new(Expr::Block {
+            expr: Box::new(Expr::Identifier {
+                value: "n".to_string(),
+                location: 0..1,
+            }),
+            location: 0..1,
+        }),
     };
 
     let expected = Expr::Funk {
         name: "fib".to_string(),
         fn_,
-        // then: Box::new(Expr::Value(Value::Num(43))),
+        location: 0..1, // then: Box::new(Expr::Value(Value::Num(43))),
     };
     assert_eq!(ast, expected);
     // panic!("{ast:?}")

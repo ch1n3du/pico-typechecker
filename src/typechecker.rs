@@ -2,7 +2,8 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{Expr, Function, Op},
+    ast::{Expr, Op},
+    function::Function,
     tipo::Tipo,
 };
 pub struct TypeChecker {
@@ -18,25 +19,27 @@ impl TypeChecker {
 
     pub fn check_expr(&mut self, expr: &Expr) -> TypeResult<Tipo> {
         match expr {
-            Expr::Identifier(name) => self.get_var_tipo(name),
-            Expr::Value(v) => Ok(v.get_tipo()),
-            Expr::Grouping(e) => self.check_expr(e),
-            Expr::Unary { op, rhs } => self.check_unary_expr(op.clone(), rhs),
-            Expr::Binary { lhs, op, rhs } => self.check_binary_expr(op.clone(), lhs, rhs),
+            Expr::Identifier { value, .. } => self.get_var_tipo(&value),
+            Expr::Value { value, .. } => Ok(value.get_tipo()),
+            Expr::Grouping { expr, .. } => self.check_expr(&expr),
+            Expr::Unary { op, rhs, .. } => self.check_unary_expr(op.clone(), rhs),
+            Expr::Binary { lhs, op, rhs, .. } => self.check_binary_expr(op.clone(), lhs, rhs),
             Expr::Let {
                 name,
-                tipo,
+                let_tipo,
                 initializer,
                 then,
-            } => self.check_let_expr(name, tipo, initializer, then),
+                ..
+            } => self.check_let_expr(name, let_tipo, initializer, then),
             Expr::If {
                 condition,
                 truthy_branch,
                 falsy_branch,
+                ..
             } => self.check_if_expr(condition, truthy_branch, falsy_branch),
-            Expr::Block(e) => self.check_expr(e),
-            Expr::Fn(funk) => self.check_funk(funk),
-            Expr::Funk { name, fn_ } => {
+            Expr::Block { expr, .. } => self.check_expr(&expr),
+            Expr::Fn { fn_, .. } => self.check_funk(fn_),
+            Expr::Funk { name, fn_, .. } => {
                 // Put the expected function type in the scope to handle recursive functions
                 let expected_tipo = fn_.get_tipo();
                 self.set_var_tipo(name, expected_tipo);

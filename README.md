@@ -12,11 +12,23 @@ The current roadmap of the program is:
 - [x] Learn Chumsky
 - [x] Use Chumsky to write the lexer.
 - [x] Write AST and write  Typechecker for it.
-- [x] Write basic parser.
+- [x] Write parser.
 - [ ] Finish parser (call expressions).
 - [ ] Thoroughly test typechecker.
 - [ ] Write tree-walking interpreter or ByteCode VM.
 - [ ] Write REPL.
+
+## Parser Progress
+
+- [x] Parses literals
+- [x] Parses `if` and `block` expression.
+- [x] Parses function declarations.
+- [ ] Parse function call.
+- [ ] Parse list literals.
+- [ ] Parse `map` literals.
+- [ ] Possibly have user-defined types.
+
+type Human { name: String, age: Int }
 
 ## How it works
 

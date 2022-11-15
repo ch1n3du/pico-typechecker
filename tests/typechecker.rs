@@ -1,18 +1,26 @@
 use pico_typechecker::{
-    ast::{Expr, Op, Value},
+    ast::{Expr, Op},
     typechecker::*,
+    value::Value,
 };
 
 #[test]
 fn dummy() {
-    let lhs: Box<Expr> = Box::new(Expr::Value(Value::Num(12)));
+    let lhs: Box<Expr> = Box::new(Expr::Value {
+        value: Value::Int(12),
+        location: 0..1,
+    });
     // let rhs: Box<Expr> = Box::new(Expr::Value(Value::Num(18)));
-    let rhs: Box<Expr> = Box::new(Expr::Value(Value::Str("Hello".to_string())));
+    let rhs: Box<Expr> = Box::new(Expr::Value {
+        value: Value::Str(Box::new("Hello".to_string())),
+        location: 0..1,
+    });
 
     let testing = Expr::Binary {
         lhs,
         op: Op::Plus,
         rhs,
+        location: 0..1,
     };
 
     let mut checker = TypeChecker::new();

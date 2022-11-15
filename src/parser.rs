@@ -24,54 +24,72 @@
 use chumsky::prelude::*;
 
 use crate::{
-    ast::{Expr, Function, Op, Value},
+    ast::{Expr, Op},
+    function::Function,
+    lexer::Span,
     tipo::Tipo,
     token::Token,
+    value::Value,
 };
 
 pub fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
     recursive(|raw_expr| {
-        // primary ::= IDENTIFIER | NUMBER | STRING | BOOL | UNIT ;
-        let primary = select! {
-            Token::Unit => Expr::Value(Value::Unit),
-            Token::Number { value } => Expr::Value(Value::Num(value.parse().unwrap())),
-            Token::String { value } => Expr::Value(Value::Str(value)),
-            Token::Bool { value } => Expr::Value(Value::Bool(value.parse().unwrap())),
-            Token::Identifier { value } => Expr::Identifier(value)
+        let value = select! {
+            Token::Unit => Value::Unit,
+            Token::Number { value } => Value::Int(value.parse().unwrap()),
+            Token::String { value } => Value::Str(Box::new(value)),
+            Token::Bool { value } => Value::Bool(value.parse().unwrap()),
         }
-        .or(raw_expr
-            .clone()
-            .delimited_by(just(Token::LeftParen), just(Token::RightParen))
-            .map(|e| Expr::Grouping(Box::new(e))));
+        .map_with_span(|value: Value, location: Span| Expr::Value { value, location });
 
-        // unary ::= (- | not) unary | primary ;
+        let raw_ident = select! {Token::Identifier { value } => value.clone()};
+        let ident = raw_ident
+            .map_with_span(|value: String, location: Span| Expr::Identifier { value, location })
+            .labelled("Identifier");
+
+        let grouping = raw_expr
+            .clone()
+            .delimited_by(just(Token::LeftParen), just(Token::RightParen));
+
+        let primary = choice((value, ident, grouping));
+
         let unary_op = choice((
             just(Token::Not).to(Op::Not),
             just(Token::Minus).to(Op::Minus),
         ));
 
-        let unary = unary_op
-            .repeated()
-            .then(primary)
-            .foldr(|op, rhs| Expr::Unary {
-                op,
-                rhs: Box::new(rhs),
-            });
+        let unary =
+            unary_op
+                .repeated()
+                .then(primary)
+                .map_with_span(|(ops, expr), location: Span| {
+                    ops.into_iter().rev().fold(expr, |acc, op| Expr::Unary {
+                        op,
+                        rhs: Box::new(acc),
+                        location: location.clone(),
+                    })
+                });
+        // .foldr(|op, rhs| Expr::Unary {
+        // op,
+        // rhs: Box::new(rhs),
+        // });
 
         // factor ::= unary (( * | / ) factor)* ;
         let factor_op = just(Token::RSlash)
             .to(Op::Divide)
             .or(just(Token::Star).to(Op::Multiply));
 
-        let factor =
-            unary
-                .clone()
-                .then(factor_op.then(unary).repeated())
-                .foldl(|lhs, (op, rhs)| Expr::Binary {
-                    lhs: Box::new(lhs),
+        let factor = unary
+            .clone()
+            .then(factor_op.then(unary).repeated())
+            .map_with_span(|(lhs, rhss), location: Span| {
+                rhss.into_iter().fold(lhs, |acc, (op, rhs)| Expr::Binary {
+                    lhs: Box::new(acc),
                     op,
                     rhs: Box::new(rhs),
-                });
+                    location: location.clone(),
+                })
+            });
 
         // term ::= factor (( + | - )  factor)* ;
         let term_op = just(Token::Plus)
@@ -81,10 +99,13 @@ pub fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
         let term = factor
             .clone()
             .then(term_op.then(factor).repeated())
-            .foldl(|lhs, (op, rhs)| Expr::Binary {
-                lhs: Box::new(lhs),
-                op,
-                rhs: Box::new(rhs),
+            .map_with_span(|(lhs, rhss), location: Span| {
+                rhss.into_iter().fold(lhs, |acc, (op, rhs)| Expr::Binary {
+                    lhs: Box::new(acc),
+                    op,
+                    rhs: Box::new(rhs),
+                    location: location.clone(),
+                })
             });
 
         // comparison ::= term (( < | <= | > | >= ) term)* ;
@@ -97,10 +118,13 @@ pub fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
         let comparison = term
             .clone()
             .then(comparison_op.then(term).repeated())
-            .foldl(|lhs, (op, rhs)| Expr::Binary {
-                lhs: Box::new(lhs),
-                op,
-                rhs: Box::new(rhs),
+            .map_with_span(|(lhs, rhss), location: Span| {
+                rhss.into_iter().fold(lhs, |acc, (op, rhs)| Expr::Binary {
+                    lhs: Box::new(acc),
+                    op,
+                    rhs: Box::new(rhs),
+                    location: location.clone(),
+                })
             });
 
         // equality ::= comparison (( == | != ) comparison)* ;
@@ -111,10 +135,13 @@ pub fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
         let equality = comparison
             .clone()
             .then(equality_op.then(comparison).repeated())
-            .foldl(|lhs, (op, rhs)| Expr::Binary {
-                lhs: Box::new(lhs),
-                op,
-                rhs: Box::new(rhs),
+            .map_with_span(|(lhs, rhss), location: Span| {
+                rhss.into_iter().fold(lhs, |acc, (op, rhs)| Expr::Binary {
+                    lhs: Box::new(acc),
+                    op,
+                    rhs: Box::new(rhs),
+                    location: location.clone(),
+                })
             })
             .labelled("equality");
 
@@ -122,10 +149,13 @@ pub fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
         let logical_and = equality
             .clone()
             .then(just(Token::And).to(Op::And).then(equality).repeated())
-            .foldl(|lhs, (op, rhs)| Expr::Binary {
-                lhs: Box::new(lhs),
-                op,
-                rhs: Box::new(rhs),
+            .map_with_span(|(lhs, rhss), location: Span| {
+                rhss.into_iter().fold(lhs, |acc, (op, rhs)| Expr::Binary {
+                    lhs: Box::new(acc),
+                    op,
+                    rhs: Box::new(rhs),
+                    location: location.clone(),
+                })
             })
             .labelled("logical_and");
 
@@ -133,56 +163,79 @@ pub fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
         let logical_or = logical_and
             .clone()
             .then(just(Token::Or).to(Op::Or).then(logical_and).repeated())
-            .foldl(|lhs, (op, rhs)| Expr::Binary {
-                lhs: Box::new(lhs),
-                op,
-                rhs: Box::new(rhs),
+            .map_with_span(|(lhs, rhss), location: Span| {
+                rhss.into_iter().fold(lhs, |acc, (op, rhs)| Expr::Binary {
+                    lhs: Box::new(acc),
+                    op,
+                    rhs: Box::new(rhs),
+                    location: location.clone(),
+                })
             })
             .labelled("logical_or");
 
         let block = raw_expr
             .clone()
             .delimited_by(just(Token::LeftBrace), just(Token::RightBrace))
-            .map(|e| Expr::Block(Box::new(e)))
+            .map_with_span(|e, location| Expr::Block {
+                expr: Box::new(e),
+                location,
+            })
             .labelled("block");
 
         let if_ = just(Token::If)
             .ignore_then(logical_or.clone())
             .then(block.clone())
             .then(just(Token::Else).ignore_then(block.clone()).or_not())
-            .map(|((condition, truthy_branch), falsy_branch)| Expr::If {
-                condition: Box::new(condition),
-                truthy_branch: Box::new(truthy_branch),
-                falsy_branch: falsy_branch.map(Box::new),
-            })
+            .map_with_span(
+                |((condition, truthy_branch), falsy_branch), location| Expr::If {
+                    condition: Box::new(condition),
+                    truthy_branch: Box::new(truthy_branch),
+                    falsy_branch: falsy_branch.map(Box::new),
+                    location,
+                },
+            )
             .labelled("If Expression");
 
-        let ident = select! {Token::Identifier { value } => value.clone()}.labelled("Identifier");
+        let tipo = recursive(|raw_tipo| {
+            just(Token::Fn).ignore_then(
+                raw_tipo
+                    .clone()
+                    .separated_by(just(Token::Comma))
+                    .then_ignore(just(Token::Comma).or_not())
+                    .delimited_by(just(Token::LeftParen), just(Token::RightParen))
+                    .then_ignore(just(Token::RArrow))
+                    .then(raw_tipo.clone())
+                    .map(|(args, ret): (Vec<Tipo>, Tipo)| Tipo::new_fn(args, ret)),
+            )
+        });
 
         // annotation ::= ':' IDENT
         let annotation = just(Token::Colon)
-            .ignore_then(ident)
-            .map(|name| Tipo::new(&name))
+            .ignore_then(tipo.clone())
             .labelled("Type Annotation");
 
         // letExpr ::= 'let' IDENT '=' Expr ; Expr
         let let_ = just(Token::Let)
-            .ignore_then(ident)
+            .ignore_then(raw_ident)
             .then(annotation.clone().or_not())
             .then_ignore(just(Token::Equal))
             .then(raw_expr.clone())
             .then_ignore(just(Token::SemiColon))
             .then(raw_expr.clone())
-            .map(|(((name, tipo), initializer), then)| Expr::Let {
-                name,
-                tipo,
-                initializer: Box::new(initializer),
-                then: Box::new(then),
-            })
+            .map_with_span(
+                |(((name, let_tipo), initializer), then), location| Expr::Let {
+                    name,
+                    let_tipo,
+                    initializer: Box::new(initializer),
+                    then: Box::new(then),
+                    location,
+                },
+            )
             .labelled("Let Expression");
 
         // params ::= ( ((ident annotation) (',' ident annotation)* ','?)?   )
-        let params = ident
+        let params = raw_ident
+            .clone()
             .then(annotation.clone())
             .separated_by(just(Token::Comma))
             .then_ignore(just(Token::Comma).or_not())
@@ -190,15 +243,14 @@ pub fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
             .labelled("Function Parameters");
 
         // funkAnnotation ::= '->' IDENT
-        let funk_annotation = just(Token::RArrow)
-            .ignore_then(ident)
-            .map(|name| Tipo::new(&name))
+        let return_annotation = just(Token::RArrow)
+            .ignore_then(tipo.clone())
             .or_not()
             .labelled("Funk Type Annotation");
 
         // funkDecl ::= funk IDENT params block
         let funk = params
-            .then(funk_annotation)
+            .then(return_annotation)
             .then(block.clone())
             .map(|((params, ret), body)| {
                 let ret = ret.unwrap_or(Tipo::unit_type());
@@ -212,17 +264,23 @@ pub fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
             .labelled("Function body");
 
         let funk_decl = just(Token::Funk)
-            .ignore_then(ident.clone())
+            .ignore_then(raw_ident.clone())
             .then(funk.clone())
             // .then(raw_expr)
             // .map(|((name, funk), then)| Expr::Funk {
-            .map(|(name, funk)| Expr::Funk {
+            .map_with_span(|(name, funk), location| Expr::Funk {
                 name,
                 fn_: funk,
+                location,
                 // then: Box::new(then),
             });
 
-        let fn_ = just(Token::Fn).ignore_then(funk).map(Expr::Fn);
+        let fn_ = just(Token::Fn)
+            .ignore_then(funk)
+            .map_with_span(|fn_, location| Expr::Value {
+                value: Value::Fn(Box::new(fn_)),
+                location,
+            });
 
         choice((block, let_, logical_or, if_, funk_decl, fn_))
     })

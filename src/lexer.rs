@@ -4,8 +4,8 @@ use crate::token::Token;
 
 use chumsky::prelude::*;
 
-type Span = Range<usize>;
-type Spanned<T> = (T, Span);
+pub type Span = Range<usize>;
+pub type Spanned<T> = (T, Span);
 
 pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
     let op = choice((
