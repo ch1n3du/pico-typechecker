@@ -7,8 +7,8 @@ fn main() {
     let mut chunky = Chunk::new();
 
     // Set up constants
-    chunky.add_constant(&Value::Int(8));
-    chunky.add_constant(&Value::Int(8));
+    chunky.add_constant(Value::Int(8));
+    chunky.add_constant(Value::Int(8));
 
     // OP_CONSTANT 0;
     chunky.write_opcode(OpCode::GetConstant, &[0], 0..1);

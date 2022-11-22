@@ -5,30 +5,18 @@ I've been thinking about how typecheckers work and what better way to learn abou
 
 Also I've been meaning to learn [Chumsky](https://github.com/zesterer/chumsky).
 
-## Roadmap
+## Goals
 
 The current roadmap of the program is:
 
 - [x] Learn Chumsky
 - [x] Use Chumsky to write the lexer.
-- [x] Write AST and write  Typechecker for it.
+- [x] Write AST and write a Typechecker for it.
 - [x] Write parser.
+- [ ] Write a ByteCode VM for the language.
 - [ ] Finish parser (call expressions).
 - [ ] Thoroughly test typechecker.
-- [ ] Write tree-walking interpreter or ByteCode VM.
 - [ ] Write REPL.
-
-## Parser Progress
-
-- [x] Parses literals
-- [x] Parses `if` and `block` expression.
-- [x] Parses function declarations.
-- [ ] Parse function call.
-- [ ] Parse list literals.
-- [ ] Parse `map` literals.
-- [ ] Possibly have user-defined types.
-
-type Human { name: String, age: Int }
 
 ## How it works
 
@@ -57,3 +45,8 @@ funk collatz(n: int) -> int {
 ## Nov 2nd
 
 Got basic parsing working
+
+## Update \[21/11/22\]
+
+This project has kind of grown in scope, the current plan is to finish the ByteCode VM to allow faster iteration.
+Also I'm getting a better grip on how type-inference and might do more on that in future.

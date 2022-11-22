@@ -35,9 +35,16 @@ impl VM {
             let opcode: OpCode = self.read_opcode()?;
 
             match opcode {
+                Return => return Ok(()),
                 GetConstant => self.op_constant(),
                 GetConstantLong => self.op_constant_long(),
-                Return => return Ok(()),
+                SetLocal => self.set_local(),
+                GetLocal => self.get_local(),
+                Pop => {
+                    self.pop()?;
+                    Ok(())
+                }
+                PopN => self.pop_n(),
 
                 // Constant OpCodes
                 Unit => self.push(Value::Unit),
@@ -77,6 +84,7 @@ impl VM {
     }
 
     fn op_constant_long(&mut self) -> Result<(), InterpretErr> {
+        // Read the next three bytes to get the index
         let i1: u8 = self.read_byte()?;
         let i2: u8 = self.read_byte()?;
         let i3: u8 = self.read_byte()?;
@@ -87,6 +95,27 @@ impl VM {
         self.push(constant)?;
 
         Ok(())
+    }
+
+    /// SET_LOCAL index
+    fn set_local(&mut self) -> Result<(), InterpretErr> {
+        // Read the next byte as the index
+        let local_index = self.read_byte()? as usize;
+        let popped_stack_top = self.pop()?;
+
+        // Set the value popped from the top of the stack to the local.
+        self.values[local_index] = popped_stack_top;
+
+        Ok(())
+    }
+
+    /// GET_LOCAL index
+    fn get_local(&mut self) -> Result<(), InterpretErr> {
+        // Read the next byte as the index
+        let local_index = self.read_byte()? as usize;
+
+        // Push the local at the given index to the top of the value stack
+        self.push(self.values[local_index].clone())
     }
 
     fn unary_stack_op(&mut self, f: UnaryStackOp) -> Result<(), InterpretErr> {
@@ -140,6 +169,12 @@ impl VM {
         }
     }
 
+    /// Pushes a value to the `values` stack or returns an `InterpretErr` if it exceeds the VM::STACK_MAX.
+    fn push(&mut self, value: Value) -> Result<(), InterpretErr> {
+        self.values.push(value);
+        Ok(())
+    }
+
     /// Pops a value from the Value stack or returns an `InterpretErr`.
     fn pop(&mut self) -> Result<Value, InterpretErr> {
         if self.values.len() > 0 {
@@ -149,14 +184,17 @@ impl VM {
         }
     }
 
-    /// Pushes a value to the `values` stack or returns an `InterpretErr` if it exceeds the VM::STACK_MAX.
-    fn push(&mut self, value: Value) -> Result<(), InterpretErr> {
-        if self.values.len() < VM::STACK_MAX {
-            self.values.push(value);
-            Ok(())
-        } else {
-            Err(InterpretErr::StackOverflow)
+    /// POP_N count
+    /// Takes one operand and pops that number of values from the stack.
+    fn pop_n(&mut self) -> Result<(), InterpretErr> {
+        // Read the operand
+        let count = self.read_byte()?;
+
+        for _ in 0..count {
+            self.pop()?;
         }
+
+        Ok(())
     }
 }
 
@@ -184,7 +222,7 @@ mod tests {
         let mut chunky = Chunk::new();
 
         // Set up constants
-        chunky.add_constant(&Value::Int(42));
+        chunky.add_constant(Value::Int(42));
 
         // OP_CONSTANT 0;
         chunky.write_opcode(OpCode::GetConstant, &[0], 0..1);
@@ -201,8 +239,8 @@ mod tests {
         let mut chunky = Chunk::new();
 
         // Set up constants
-        chunky.add_constant(&Value::Int(42));
-        chunky.add_constant(&Value::Int(69));
+        chunky.add_constant(Value::Int(42));
+        chunky.add_constant(Value::Int(69));
 
         // OP_CONSTANT 0;
         chunky.write_opcode(OpCode::GetConstantLong, &[0, 0, 1], 0..1);

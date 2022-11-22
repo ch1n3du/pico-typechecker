@@ -4,30 +4,50 @@ use super::Value;
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum OpCode {
-    /// Returns a Constant from the constants in the chunk.
-    Return,
-    GetConstant,
-    GetConstantLong,
-    Negate,
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-    Equal,
-    NotEqual,
-    Less,
-    LessEqual,
-    Greater,
-    GreaterEqual,
-    LogicalAnd,
-    LogicalOr,
-    LogicalNot,
-    Unit,
-    True,
-    False,
+    /// Stops execution.
+    Return = 0,
+
+    /// Reads the next byte in the instruction stream as an index, pushes the constant
+    /// in the  chunk at that index to the top of the stack.
+    GetConstant = 1,
+
+    /// Works like `GetConstant` but takes three bytes as operands allowing for larger indexing.
+    GetConstantLong = 2,
+
+    /// Numeric OpCodes
+    Negate = 3,
+    Add = 4,
+    Subtract = 5,
+    Multiply = 6,
+    Divide = 7,
+
+    /// Comparison OpCodes
+    Equal = 8,
+    NotEqual = 9,
+    Less = 10,
+    LessEqual = 11,
+    Greater = 12,
+    GreaterEqual = 13,
+    LogicalAnd = 14,
+    LogicalOr = 15,
+    LogicalNot = 16,
+
+    /// Value Constant OpCodes
+    Unit = 17,
+    True = 18,
+    False = 19,
+
+    /// Locals Manipulation OpCodes
+    SetLocal = 20,
+    GetLocal = 21,
+
+    /// Stack Manipulation OpCodes
+    Pop = 22,
+    PopN = 23,
 }
 
 impl OpCode {
+    /// Pretty prints info on the Opcode
     pub fn disassemble(&self, chunk: &Chunk, offset: usize) -> usize {
         let end_offset = offset + self.arity();
 
@@ -56,6 +76,16 @@ impl OpCode {
 
                 Some(format!(" {index} -> {constant}"))
             }
+            SetLocal => {
+                let index = chunk.code[offset + 1];
+
+                Some(format!(" {index}"))
+            }
+            GetLocal => {
+                let index = chunk.code[offset + 1];
+
+                Some(format!(" {index}"))
+            }
             _ => None,
         };
 
@@ -70,12 +100,17 @@ impl OpCode {
         end_offset + 1
     }
 
+    /// Returns the number or operands taken by a given OpCode.
     pub fn arity(&self) -> usize {
         use OpCode::*;
 
         match self {
             Return => 0,
+            Pop => 0,
+            PopN => 1,
             GetConstant => 1,
+            SetLocal => 1,
+            GetLocal => 1,
             GetConstantLong => 3,
 
             // Binary OpCodes

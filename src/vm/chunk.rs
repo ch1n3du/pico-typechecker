@@ -73,8 +73,8 @@ impl Chunk {
     }
 
     /// Adds a constant to the chunk.
-    pub fn add_constant(&mut self, value: &Value) {
-        self.constants.push(value.clone())
+    pub fn add_constant(&mut self, value: Value) {
+        self.constants.push(value)
     }
 
     /// Returns the line number of an instruction if it's at the beginning of the line.
