@@ -266,13 +266,13 @@ pub fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
         let funk_decl = just(Token::Funk)
             .ignore_then(raw_ident.clone())
             .then(funk.clone())
-            // .then(raw_expr)
+            .then(raw_expr)
             // .map(|((name, funk), then)| Expr::Funk {
-            .map_with_span(|(name, funk), location| Expr::Funk {
+            .map_with_span(|((name, funk), then), location| Expr::Funk {
                 name,
                 fn_: funk,
                 location,
-                // then: Box::new(then),
+                then: Box::new(then),
             });
 
         let fn_ = just(Token::Fn)

@@ -22,23 +22,15 @@ pub struct Local {
 }
 
 impl Compiler {
+    pub fn new() -> Compiler {
+        Compiler {
+            locals: Vec::new(),
+            scope_depth: 0,
+            scope_start: 0,
+        }
+    }
     pub fn compile(&mut self, chunky: &mut Chunk, expr: &Expr) -> CompilerResult<()> {
         match expr {
-            Expr::Let {
-                name,
-                let_tipo: _,
-                initializer,
-                then,
-                location,
-            } => {
-                /// 1. Add the c
-                self.locals.push(Local {
-                    name: name.clone(),
-                    depth: self.scope_depth,
-                });
-                self.compile(chunky, &initializer)?;
-                todo!()
-            }
             Expr::Value { value, location } => self.compile_value(chunky, value, location.clone()),
             Expr::Unary { op, rhs, location } => {
                 self.compiler_unary(chunky, location.clone(), *op, rhs)
@@ -50,11 +42,50 @@ impl Compiler {
                 location,
             } => self.compile_binary(chunky, location.clone(), *op, lhs, rhs),
             Expr::Grouping { expr, location: _ } => self.compile(chunky, expr),
+            Expr::Let {
+                name,
+                let_tipo: _,
+                initializer,
+                then,
+                location,
+            } => self.compile_let(chunky, name, initializer, then, location.clone()),
+            Expr::Identifier { value, location } => {
+                self.compile_identifier(&value, location.clone())
+            }
             _ => todo!(),
         }
     }
 
-    fn compile_value(&mut self, chunky: &mut Chunk, value: &Value, location: Span) {
+    fn compile_identifier(&mut self, name: &str, location: Span) -> CompilerResult<()> {
+        todo!()
+    }
+
+    fn compile_let(
+        &mut self,
+        chunky: &mut Chunk,
+        name: &str,
+        initializer: &Expr,
+        then: &Expr,
+        location: Span,
+    ) -> CompilerResult<()> {
+        let local = Local {
+            name: name.to_string(),
+            depth: self.scope_depth,
+        };
+        self.locals.push(local);
+        let local_index = self.locals.len() - 1;
+
+        self.compile(chunky, initializer)?;
+
+        Ok(())
+    }
+
+    fn compile_value(
+        &mut self,
+        chunky: &mut Chunk,
+        value: &Value,
+        location: Span,
+    ) -> CompilerResult<()> {
         match value {
             Value::Unit => chunky.write_opcode(OpCode::Unit, &[], location.clone()),
             Value::Bool(true) => chunky.write_opcode(OpCode::True, &[], location.clone()),
@@ -65,10 +96,17 @@ impl Compiler {
                 chunky.write_opcode(OpCode::GetConstant, &[index], location.clone());
             }
         }
+        Ok(())
     }
 
-    fn compiler_unary(&mut self, chunky: &mut Chunk, location: Span, op: Op, rhs: &Expr) {
-        self.compile(chunky, rhs);
+    fn compiler_unary(
+        &mut self,
+        chunky: &mut Chunk,
+        location: Span,
+        op: Op,
+        rhs: &Expr,
+    ) -> CompilerResult<()> {
+        self.compile(chunky, rhs)?;
 
         let unary_op: OpCode = match op {
             Op::Minus => OpCode::Negate,
@@ -77,6 +115,7 @@ impl Compiler {
         };
 
         chunky.write_opcode(unary_op, &[], location.clone());
+        Ok(())
     }
 
     fn compile_binary(
@@ -86,7 +125,7 @@ impl Compiler {
         op: Op,
         lhs: &Expr,
         rhs: &Expr,
-    ) {
+    ) -> CompilerResult<()> {
         self.compile(chunky, lhs);
         self.compile(chunky, rhs);
 
@@ -107,6 +146,7 @@ impl Compiler {
         };
 
         chunky.write_opcode(bin_opcode, &[], location.clone());
+        Ok(())
     }
 }
 

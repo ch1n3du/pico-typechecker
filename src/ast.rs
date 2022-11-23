@@ -26,6 +26,10 @@ pub enum Expr {
         rhs: Box<Expr>,
         location: Span,
     },
+    Fn {
+        fn_: Function,
+        location: Span,
+    },
     Let {
         name: String,
         let_tipo: Option<Tipo>,
@@ -42,11 +46,7 @@ pub enum Expr {
     Funk {
         name: String,
         fn_: Function,
-        // then: Box<Expr>,
-        location: Span,
-    },
-    Fn {
-        fn_: Function,
+        then: Box<Expr>,
         location: Span,
     },
     Block {
