@@ -50,14 +50,29 @@ impl Compiler {
                 location,
             } => self.compile_let(chunky, name, initializer, then, location.clone()),
             Expr::Identifier { value, location } => {
-                self.compile_identifier(&value, location.clone())
+                self.compile_identifier(chunky, &value, location.clone())
             }
             _ => todo!(),
         }
     }
 
-    fn compile_identifier(&mut self, name: &str, location: Span) -> CompilerResult<()> {
-        todo!()
+    fn compile_identifier(
+        &mut self,
+        chunky: &mut Chunk,
+        name: &str,
+        location: Span,
+    ) -> CompilerResult<()> {
+        // When an identifier is found find the it's index on the stack.
+        // I assume the variable exists as the typechecker already checks for that.
+        let (index, _) = self
+            .locals
+            .iter()
+            .enumerate()
+            .find(|(index, local)| local.name == name)
+            .unwrap();
+
+        chunky.write_opcode(OpCode::GetLocal, &[index as u8], location.clone());
+        Ok(())
     }
 
     fn compile_let(
@@ -75,6 +90,7 @@ impl Compiler {
         self.locals.push(local);
         let local_index = self.locals.len() - 1;
 
+        // Compile the initializer leaving it at the top of the stack.
         self.compile(chunky, initializer)?;
 
         Ok(())

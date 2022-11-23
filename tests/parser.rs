@@ -6,6 +6,7 @@ use pico_typechecker::{
     parser,
     tipo::Tipo,
     token::Token,
+    value::Value,
 };
 
 fn try_parsing(src: &str) -> Expr {
@@ -42,6 +43,10 @@ fn can_parse_funk_expr() {
         name: "fib".to_string(),
         fn_,
         location: 0..1, // then: Box::new(Expr::Value(Value::Num(43))),
+        then: Box::new(Expr::Value {
+            value: Value::Unit,
+            location: 0..1,
+        }),
     };
     assert_eq!(ast, expected);
     // panic!("{ast:?}")
