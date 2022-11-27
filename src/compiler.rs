@@ -51,6 +51,12 @@ impl Compiler {
                 self.compile_identifier(chunky, &value, location.clone())
             }
             Expr::Block { expr, location: _ } => self.compile_block(chunky, expr),
+            Expr::If {
+                condition,
+                truthy_branch,
+                falsy_branch,
+                location,
+            } => todo!(),
             _ => todo!(),
         }
     }

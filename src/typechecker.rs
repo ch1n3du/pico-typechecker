@@ -111,8 +111,9 @@ impl TypeChecker {
         &mut self,
         condition: &Expr,
         truthy_branch: &Expr,
-        falsy_branch: &Option<Box<Expr>>,
+        falsy_branch: &Expr,
     ) -> TypeResult<Tipo> {
+        // Check that the condition is a boolean.
         if !self.check_expr(condition)?.is_bool() {
             return Err(TypeError::Basic(
                 "If/Else condition must be a boolean expression".to_string(),
@@ -120,26 +121,17 @@ impl TypeChecker {
         }
 
         let truthy_tipo = self.check_expr(truthy_branch)?;
-        if let Some(falsy) = falsy_branch {
-            let falsy_tipo = self.check_expr(falsy)?;
-            if falsy_tipo != truthy_tipo {
-                return Err(TypeError::Basic(
-                    "Truthy and falsy branch in an if/else expression must have the same type."
-                        .to_string(),
-                ));
-            }
+        let falsy_tipo = self.check_expr(falsy_branch)?;
 
-            Ok(truthy_tipo)
-        } else {
-            if truthy_tipo.is_unit() {
-                Err(TypeError::Basic(
-                    "Truthy and falsy branch in an if/else expression must have the same type."
-                        .to_string(),
-                ))
-            } else {
-                Ok(Tipo::unit_type())
-            }
+        // Check that the truthy and falsy branches have the same type.
+        if falsy_tipo != truthy_tipo {
+            return Err(TypeError::Basic(
+                "Truthy and falsy branch in an if/else expression must have the same type."
+                    .to_string(),
+            ));
         }
+
+        Ok(truthy_tipo)
     }
 
     fn check_let_expr(

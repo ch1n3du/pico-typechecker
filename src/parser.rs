@@ -203,15 +203,30 @@ pub fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
             })
             .labelled("block");
 
+        let else_block = just(Token::Else)
+            .ignore_then(block.clone())
+            .or_not()
+            .map_with_span(|maybe_block, location| {
+                if let Some(block) = maybe_block {
+                    block
+                } else {
+                    Expr::Value {
+                        value: Value::Unit,
+                        location,
+                    }
+                }
+            })
+            .labelled("Else Block");
+
         let if_ = just(Token::If)
             .ignore_then(logical_or.clone())
             .then(block.clone())
-            .then(just(Token::Else).ignore_then(block.clone()).or_not())
+            .then(else_block)
             .map_with_span(
                 |((condition, truthy_branch), falsy_branch), location| Expr::If {
                     condition: Box::new(condition),
                     truthy_branch: Box::new(truthy_branch),
-                    falsy_branch: falsy_branch.map(Box::new),
+                    falsy_branch: Box::new(falsy_branch),
                     location,
                 },
             )

@@ -45,7 +45,7 @@ pub enum Expr {
     If {
         condition: Box<Expr>,
         truthy_branch: Box<Expr>,
-        falsy_branch: Option<Box<Expr>>,
+        falsy_branch: Box<Expr>,
         location: Span,
     },
     Funk {
