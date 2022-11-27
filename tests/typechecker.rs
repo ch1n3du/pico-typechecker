@@ -4,11 +4,14 @@ use chumsky::Parser;
 
 use pico_typechecker::{
     ast::Expr,
+    compiler::Compiler,
     lexer::{lexer, Span},
     parser,
     tipo::Tipo,
     token::Token,
     typechecker::*,
+    value::Value,
+    vm::{chunk::Chunk, opcode::OpCode, VM},
 };
 
 fn try_parsing(src: &str) -> Expr {
@@ -21,16 +24,29 @@ fn try_parsing(src: &str) -> Expr {
 #[test]
 fn dummy() {
     let expr = try_parsing(
-        "funk fib(n: int) -> int { 
-                if n < 2 {
-                    n
+        "
+                if 1  < 2 {
+                    7
                 } else {
-                    fib(n-1) + fib(n-2)
+                    9
                 }
-            }
     ",
     );
     let mut checker = TypeChecker::new();
+
+    let mut chunky = Chunk::new();
+    let mut compiler = Compiler::new();
+
+    let code = compiler.compile(&mut chunky, &expr).unwrap();
+    chunky.write_opcode(OpCode::Return, &[], 0..0);
+
+    chunky.disassemble("If/Else test");
+
+    let mut vm = VM::new(chunky);
+    vm.run().unwrap();
+
+    println!("{vm:?}");
+    // panic!();
 
     let tipo = checker
         .check_expr(&expr)
@@ -38,11 +54,5 @@ fn dummy() {
 
     // panic!("Tipo: '{tipo}'");
 
-    assert_eq!(
-        tipo,
-        Tipo::Fn {
-            args: vec![Tipo::int_type()],
-            ret: Box::new(Tipo::int_type())
-        }
-    )
+    assert_eq!(tipo, Tipo::int_type())
 }

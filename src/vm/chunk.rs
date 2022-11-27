@@ -18,6 +18,10 @@ impl Chunk {
         }
     }
 
+    pub fn patch_instruction(&mut self, index: usize, instruction: u8) {
+        self.code[index] = instruction;
+    }
+
     /// Gets the instruction at a given index.
     // Returns `None` if thr index is out of bounds
     pub fn get_instruction(&self, index: usize) -> Option<u8> {
@@ -28,6 +32,7 @@ impl Chunk {
         }
     }
 
+    /// Gets a constant at a given index
     pub fn get_constant(&self, index: usize) -> Option<&Value> {
         if index >= self.constants.len() {
             // panic!(
@@ -104,7 +109,7 @@ impl Chunk {
         // let h_line_thin = "＿".repeat(top.len());
 
         println!("{top}");
-        println!("Line {SEP} Raw  {SEP} Repr");
+        println!("Line       {SEP} Raw  {SEP} Repr");
         println!("{}", h_line_thick);
 
         let mut offset = 0;

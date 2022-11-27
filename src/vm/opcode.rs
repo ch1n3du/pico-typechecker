@@ -44,6 +44,11 @@ pub enum OpCode {
     /// Stack Manipulation OpCodes
     Pop = 22,
     PopN = 23,
+
+    /// Jump Instructions
+    Jump = 24,
+    JumpIfTrue = 25,
+    JumpIfFalse = 26,
 }
 
 impl OpCode {
@@ -64,7 +69,7 @@ impl OpCode {
                 let index = chunk.code[offset + 1];
                 let constant: &Value = chunk.get_constant(index as usize).unwrap();
 
-                Some(format!(" {index} -> {constant}"))
+                Some(format!(" [{index}] -> {constant}"))
             }
             GetConstantLong => {
                 let p1 = chunk.code[offset + 1];
@@ -74,7 +79,7 @@ impl OpCode {
 
                 let constant: &Value = chunk.get_constant(index as usize).unwrap();
 
-                Some(format!(" {index} -> {constant}"))
+                Some(format!(" [{index}] -> {constant}"))
             }
             SetLocal => {
                 let index = chunk.code[offset + 1];
@@ -112,6 +117,9 @@ impl OpCode {
             SetLocal => 1,
             GetLocal => 1,
             GetConstantLong => 3,
+            Jump => 1,
+            JumpIfTrue => 1,
+            JumpIfFalse => 1,
 
             // Binary OpCodes
             Negate | Add | Subtract | Multiply | Divide | Equal | NotEqual | Less | LessEqual
@@ -151,6 +159,20 @@ impl TryFrom<u8> for OpCode {
             14 => OpCode::LogicalAnd,
             15 => OpCode::LogicalOr,
             16 => OpCode::LogicalNot,
+            17 => OpCode::Unit,
+            18 => OpCode::True,
+            19 => OpCode::False,
+
+            20 => OpCode::SetLocal,
+            21 => OpCode::GetLocal,
+
+            22 => OpCode::Pop,
+            23 => OpCode::PopN,
+
+            24 => OpCode::Jump,
+            25 => OpCode::JumpIfTrue,
+            26 => OpCode::JumpIfFalse,
+
             _ => return Err("Invalid OpCode".to_string()),
         };
 

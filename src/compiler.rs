@@ -56,7 +56,13 @@ impl Compiler {
                 truthy_branch,
                 falsy_branch,
                 location,
-            } => todo!(),
+            } => self.compile_if_else(
+                chunky,
+                condition,
+                truthy_branch,
+                falsy_branch,
+                location.clone(),
+            ),
             _ => todo!(),
         }
     }
@@ -168,6 +174,42 @@ impl Compiler {
         // then compile the next expression
         self.compile(chunky, initializer)?;
         self.compile(chunky, then)?;
+
+        Ok(())
+    }
+
+    fn compile_if_else(
+        &mut self,
+        chunky: &mut Chunk,
+        condition: &Expr,
+        truthy_branch: &Expr,
+        falsy_branch: &Expr,
+        location: Span,
+    ) -> CompilerResult<()> {
+        // Compile the condition leaving it at the top of the stack
+        self.compile(chunky, condition)?;
+
+        // Write a dummy jump instruction to the else block
+        // Store it's jump location's index to be patched after compiling the if block.
+        chunky.write_opcode(OpCode::JumpIfFalse, &[69], location.clone());
+        let jump_to_beginning_of_else_index = chunky.code.len() - 1;
+
+        // Compile the truthy branch
+        self.compile(chunky, truthy_branch)?;
+
+        // Patch jump_to_else to after the if block
+        chunky.patch_instruction(jump_to_beginning_of_else_index, chunky.code.len() as u8);
+
+        // Write a dummy jump instruction to after the else block
+        // Store it's jump location's index to be patched after compiling the if block.
+        chunky.write_opcode(OpCode::Jump, &[69], location);
+        let jump_to_after_else_index = chunky.code.len() - 1;
+
+        // Compile the falsy branch
+        self.compile(chunky, falsy_branch)?;
+
+        // Patch jump_to_after_else to after the else block
+        chunky.patch_instruction(jump_to_after_else_index, chunky.code.len() as u8);
 
         Ok(())
     }
