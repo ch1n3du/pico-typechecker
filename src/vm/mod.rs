@@ -16,8 +16,6 @@ type BinaryStackOp = fn(Value, Value) -> Value;
 type UnaryStackOp = fn(Value) -> Value;
 
 impl VM {
-    const STACK_MAX: usize = 256;
-
     /// Set's a chunks as the VM's chunk field
     pub fn new(chunk: Chunk) -> VM {
         VM {
@@ -177,24 +175,24 @@ impl VM {
 
     /// Pops a value from the Value stack or returns an `InterpretErr`.
     fn pop(&mut self) -> Result<Value, InterpretErr> {
-        if self.values.len() > 0 {
-            Ok(self.values.pop().unwrap())
+        if let Some(value) = self.values.pop() {
+            Ok(value)
         } else {
             Err(InterpretErr::StackTooShort)
         }
     }
 
     /// POP_N count
-    /// Takes one operand and pops that number of values from the stack.
+    /// Takes one operand(n) and pops (n) number of values from the stack.
     fn pop_n(&mut self) -> Result<(), InterpretErr> {
-        // Read the operand
-        let count = self.read_byte()?;
+        let to_be_popped = self.read_byte()? as usize;
 
-        for _ in 0..count {
-            self.pop()?;
+        if self.values.len() >= to_be_popped {
+            self.values.truncate(self.values.len() - to_be_popped);
+            Ok(())
+        } else {
+            Err(InterpretErr::StackTooShort)
         }
-
-        Ok(())
     }
 }
 
@@ -213,11 +211,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn op_return_works() {
-        todo!()
-    }
-
-    #[test]
     fn op_constant_works() {
         let mut chunky = Chunk::new();
 
@@ -226,6 +219,7 @@ mod tests {
 
         // OP_CONSTANT 0;
         chunky.write_opcode(OpCode::GetConstant, &[0], 0..1);
+        chunky.write_opcode(OpCode::Return, &[], 0..0);
 
         let mut vm = VM::new(chunky);
 
@@ -244,6 +238,9 @@ mod tests {
 
         // OP_CONSTANT 0;
         chunky.write_opcode(OpCode::GetConstantLong, &[0, 0, 1], 0..1);
+
+        // OP_RETURN;
+        chunky.write_opcode(OpCode::Return, &[], 0..1);
 
         let mut vm = VM::new(chunky);
 

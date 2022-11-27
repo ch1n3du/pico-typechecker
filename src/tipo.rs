@@ -58,8 +58,33 @@ impl std::fmt::Display for Tipo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         use Tipo::*;
         match self {
-            App { name } => write!(f, "{name}"),
-            Fn { args: _, ret: _ } => write!(f, "<function>"),
-        }
+            App { name } => {
+                write!(f, "{name}")?;
+            }
+            Fn { args, ret } => {
+                write!(f, "fn")?;
+
+                match args.len() {
+                    0 => {
+                        write!(f, "()")?;
+                    }
+                    1 => {
+                        write!(f, "({})", args[0])?;
+                    }
+                    _ => {
+                        write!(f, "({}", args[0])?;
+
+                        for arg in &args[1..args.len()] {
+                            write!(f, ", {arg}")?;
+                        }
+
+                        write!(f, ")")?;
+                    }
+                };
+                write!(f, " -> {ret}")?;
+            }
+        };
+
+        Ok(())
     }
 }

@@ -53,22 +53,43 @@ pub fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
 
         let primary = choice((value, ident, grouping));
 
+        let args = raw_expr
+            .clone()
+            .separated_by(just(Token::Comma))
+            .then_ignore(just(Token::Comma).or_not())
+            .delimited_by(just(Token::LeftParen), just(Token::RightParen));
+
+        let call = primary
+            .clone()
+            .then(args.repeated().or_not())
+            .map_with_span(|(initial_callee, args), location: Span| {
+                if let Some(args) = args {
+                    args.into_iter()
+                        .fold(initial_callee, |callee, args_| Expr::Call {
+                            callee: Box::new(callee),
+                            args: args_,
+                            location: location.clone(),
+                        })
+                } else {
+                    initial_callee
+                }
+            });
+
         let unary_op = choice((
             just(Token::Not).to(Op::Not),
             just(Token::Minus).to(Op::Minus),
         ));
 
-        let unary =
-            unary_op
-                .repeated()
-                .then(primary)
-                .map_with_span(|(ops, expr), location: Span| {
-                    ops.into_iter().rev().fold(expr, |acc, op| Expr::Unary {
-                        op,
-                        rhs: Box::new(acc),
-                        location: location.clone(),
-                    })
-                });
+        let unary = unary_op
+            .repeated()
+            .then(call)
+            .map_with_span(|(ops, expr), location: Span| {
+                ops.into_iter().rev().fold(expr, |acc, op| Expr::Unary {
+                    op,
+                    rhs: Box::new(acc),
+                    location: location.clone(),
+                })
+            });
         // .foldr(|op, rhs| Expr::Unary {
         // op,
         // rhs: Box::new(rhs),
@@ -197,22 +218,31 @@ pub fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
             .labelled("If Expression");
 
         let tipo = recursive(|raw_tipo| {
-            just(Token::Fn).ignore_then(
-                raw_tipo
-                    .clone()
-                    .separated_by(just(Token::Comma))
-                    .then_ignore(just(Token::Comma).or_not())
-                    .delimited_by(just(Token::LeftParen), just(Token::RightParen))
-                    .then_ignore(just(Token::RArrow))
-                    .then(raw_tipo.clone())
-                    .map(|(args, ret): (Vec<Tipo>, Tipo)| Tipo::new_fn(args, ret)),
-            )
+            just(Token::Fn)
+                .ignore_then(
+                    raw_tipo
+                        .clone()
+                        .separated_by(just(Token::Comma))
+                        .then_ignore(just(Token::Comma).or_not())
+                        .delimited_by(just(Token::LeftParen), just(Token::RightParen))
+                        .then_ignore(just(Token::RArrow))
+                        .then(raw_tipo.clone())
+                        .map(|(args, ret): (Vec<Tipo>, Tipo)| Tipo::new_fn(args, ret)),
+                )
+                .or(raw_ident.map(|name| Tipo::new(name.as_str())))
         });
 
         // annotation ::= ':' IDENT
         let annotation = just(Token::Colon)
             .ignore_then(tipo.clone())
             .labelled("Type Annotation");
+
+        let then_expr = raw_expr.clone().or_not().map(|e| {
+            e.clone().unwrap_or(Expr::Value {
+                value: Value::Unit,
+                location: 0..0,
+            })
+        });
 
         // letExpr ::= 'let' IDENT '=' Expr ; Expr
         let let_ = just(Token::Let)
@@ -221,7 +251,7 @@ pub fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
             .then_ignore(just(Token::Equal))
             .then(raw_expr.clone())
             .then_ignore(just(Token::SemiColon))
-            .then(raw_expr.clone())
+            .then(then_expr.clone())
             .map_with_span(
                 |(((name, let_tipo), initializer), then), location| Expr::Let {
                     name,
@@ -262,18 +292,18 @@ pub fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
                 }
             })
             .labelled("Function body");
-
         let funk_decl = just(Token::Funk)
             .ignore_then(raw_ident.clone())
             .then(funk.clone())
-            .then(raw_expr)
-            // .map(|((name, funk), then)| Expr::Funk {
-            .map_with_span(|((name, funk), then), location| Expr::Funk {
-                name,
-                fn_: funk,
-                location,
-                then: Box::new(then),
-            });
+            .then(then_expr.clone())
+            .map_with_span(
+                |((name, funk), then): ((String, Function), Expr), location| Expr::Funk {
+                    name,
+                    fn_: funk,
+                    location,
+                    then: Box::new(then),
+                },
+            );
 
         let fn_ = just(Token::Fn)
             .ignore_then(funk)

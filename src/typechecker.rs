@@ -44,10 +44,42 @@ impl TypeChecker {
                 let expected_tipo = fn_.get_tipo();
                 self.set_var_tipo(name, expected_tipo);
 
+                // Check the inner `Function` struct
                 let tipo = self.check_funk(fn_)?;
                 self.set_var_tipo(name, tipo.clone());
                 Ok(tipo)
             }
+            Expr::Call { callee, args, .. } => self.check_call(callee, args),
+        }
+    }
+
+    fn check_call(&mut self, callee: &Expr, call_args: &[Expr]) -> TypeResult<Tipo> {
+        if let Tipo::Fn {
+            args: expected_args,
+            ret,
+        } = self.check_expr(callee)?
+        {
+            if expected_args.len() != call_args.len() {
+                return Err(TypeError::IncorrectArgNo {
+                    expected: expected_args.len(),
+                    got: call_args.len(),
+                });
+            }
+
+            for (index, arg) in call_args.iter().enumerate() {
+                let actual_tipo = self.check_expr(arg)?;
+
+                if actual_tipo != expected_args[index] {
+                    return Err(TypeError::IncorrectArgType {
+                        expected: expected_args[index].clone(),
+                        got: actual_tipo,
+                        index,
+                    });
+                }
+            }
+            Ok(ret.as_ref().clone())
+        } else {
+            Err(TypeError::IncorrectCallee)
         }
     }
 
@@ -63,10 +95,9 @@ impl TypeChecker {
             tipo_params.push(tipo.clone());
         }
 
-        self.end_scope();
-
         let actual_ret = self.check_expr(body)?;
 
+        self.end_scope();
         if actual_ret == *ret {
             Ok(Tipo::new_fn(tipo_params, ret.clone()))
         } else {
@@ -213,7 +244,7 @@ impl TypeChecker {
                 }
             }
 
-            // t1: T == t2: T -> bool
+            // t1: T != t2: T -> bool
             (Op::NotEqual, t1, t2) => {
                 if t1 == t2 {
                     Ok(Tipo::bool_type())
@@ -225,7 +256,7 @@ impl TypeChecker {
             // t1: int < t2: int -> int ;
             (Op::Less, t1, t2) => {
                 if t1.is_int() && t2.is_int() {
-                    Ok(Tipo::int_type())
+                    Ok(Tipo::bool_type())
                 } else {
                     Err(TypeError::Binary { op, t1, t2 })
                 }
@@ -233,7 +264,7 @@ impl TypeChecker {
             // int <= int -> int
             (Op::LessEqual, t1, t2) => {
                 if t1.is_int() && t2.is_int() {
-                    Ok(Tipo::int_type())
+                    Ok(Tipo::bool_type())
                 } else {
                     Err(TypeError::Binary { op, t1, t2 })
                 }
@@ -241,7 +272,7 @@ impl TypeChecker {
             // t1: int > t2: int -> int
             (Op::Greater, t1, t2) => {
                 if t1.is_int() && t2.is_int() {
-                    Ok(Tipo::int_type())
+                    Ok(Tipo::bool_type())
                 } else {
                     Err(TypeError::Binary { op, t1, t2 })
                 }
@@ -249,7 +280,7 @@ impl TypeChecker {
             // int <= int -> int
             (Op::GreaterEqual, t1, t2) => {
                 if t1.is_int() && t2.is_int() {
-                    Ok(Tipo::int_type())
+                    Ok(Tipo::bool_type())
                 } else {
                     Err(TypeError::Binary { op, t1, t2 })
                 }
@@ -261,7 +292,7 @@ impl TypeChecker {
             // t1: bool && t2: bool -> bool
             (Op::And, t1, t2) => {
                 if t1.is_bool() && t2.is_bool() {
-                    Ok(Tipo::int_type())
+                    Ok(Tipo::bool_type())
                 } else {
                     Err(TypeError::Basic(format!(
                         "Can't apply 'logical and' to types '{t1}' and '{t2}'"
@@ -272,7 +303,7 @@ impl TypeChecker {
             // t1: bool || t2: bool -> bool
             (Op::Or, t1, t2) => {
                 if t1.is_bool() && t2.is_bool() {
-                    Ok(Tipo::int_type())
+                    Ok(Tipo::bool_type())
                 } else {
                     Err(TypeError::Binary { op, t1, t2 })
                 }
@@ -283,19 +314,19 @@ impl TypeChecker {
     }
 
     fn get_var_tipo(&self, name: &str) -> Result<Tipo, TypeError> {
-        for scope in self.scopes.iter().rev() {
-            if let Some(tipo) = scope.get(name) {
-                return Ok(tipo.clone());
-            }
+        let maybe_tipo = self.scopes.iter().rev().find_map(|s| s.get(name));
+
+        if let Some(var_tipo) = maybe_tipo {
+            Ok(var_tipo.clone())
+        } else {
+            Err(TypeError::VarDoesntExist(name.to_string()))
         }
-        Err(TypeError::VarDoesntExist(name.to_string()))
     }
 
     fn set_var_tipo(&mut self, name: &str, tipo: Tipo) {
         if let Some(top_scope) = self.scopes.last_mut() {
             top_scope.insert(name.to_string(), tipo.clone());
         }
-        ()
     }
 
     fn begin_scope(&mut self) {
@@ -313,8 +344,25 @@ pub type TypeResult<T> = Result<T, TypeError>;
 pub enum TypeError {
     Basic(String),
     VarDoesntExist(String),
-    Unary { op: Op, t1: Tipo },
-    Binary { op: Op, t1: Tipo, t2: Tipo },
+    Unary {
+        op: Op,
+        t1: Tipo,
+    },
+    Binary {
+        op: Op,
+        t1: Tipo,
+        t2: Tipo,
+    },
+    IncorrectArgNo {
+        expected: usize,
+        got: usize,
+    },
+    IncorrectArgType {
+        expected: Tipo,
+        got: Tipo,
+        index: usize,
+    },
+    IncorrectCallee,
 }
 
 impl std::fmt::Display for TypeError {
@@ -322,12 +370,26 @@ impl std::fmt::Display for TypeError {
         use TypeError::*;
         match self {
             Basic(s) => write!(f, "{s}"),
-            VarDoesntExist(name) => write!(f, "Variable {name} doesn't exist"),
+            VarDoesntExist(name) => write!(f, "Variable '{name}' doesn't exist"),
             Unary { op, t1 } => write!(f, "Can't apply unary operation '{op}' to type '{t1}'"),
             Binary { op, t1, t2 } => write!(
                 f,
                 "Can't apply binary operation '{op}' to types '{t1}' and '{t2}'"
             ),
+            IncorrectArgNo { expected, got } => write!(
+                f,
+                "Incorrect number of arguments, expected {expected} but got {got}."
+            ),
+            IncorrectArgType {
+                expected,
+                got,
+                index,
+            } => write!(
+                f,
+                "Expected the {index}th argument to be of type {expected} but got {got}."
+            ),
+            // TODO FIXME Makee printing better using Araidne
+            IncorrectCallee => write!(f, "Callee is not callable."),
         }
     }
 }

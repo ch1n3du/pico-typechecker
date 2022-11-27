@@ -8,14 +8,13 @@ use crate::{
 pub struct Compiler {
     locals: Vec<Local>,
     scope_depth: usize,
-    /// Stores the index of the beginning of the locals for the current scope
-    scope_start: usize,
 }
 
 /// What's the plan for locals?
 /// First for Let expression create a new local with the scope depth
 /// When a Block is encountered call 'self.begin_scope()' to increment the 'scope_depth'
 /// When the block is done compiling we call `self.end_scope()`
+#[derive(Debug, Clone)]
 pub struct Local {
     name: String,
     depth: usize,
@@ -26,7 +25,6 @@ impl Compiler {
         Compiler {
             locals: Vec::new(),
             scope_depth: 0,
-            scope_start: 0,
         }
     }
     pub fn compile(&mut self, chunky: &mut Chunk, expr: &Expr) -> CompilerResult<()> {
@@ -52,48 +50,9 @@ impl Compiler {
             Expr::Identifier { value, location } => {
                 self.compile_identifier(chunky, &value, location.clone())
             }
+            Expr::Block { expr, location: _ } => self.compile_block(chunky, expr),
             _ => todo!(),
         }
-    }
-
-    fn compile_identifier(
-        &mut self,
-        chunky: &mut Chunk,
-        name: &str,
-        location: Span,
-    ) -> CompilerResult<()> {
-        // When an identifier is found find the it's index on the stack.
-        // I assume the variable exists as the typechecker already checks for that.
-        let (index, _) = self
-            .locals
-            .iter()
-            .enumerate()
-            .find(|(index, local)| local.name == name)
-            .unwrap();
-
-        chunky.write_opcode(OpCode::GetLocal, &[index as u8], location.clone());
-        Ok(())
-    }
-
-    fn compile_let(
-        &mut self,
-        chunky: &mut Chunk,
-        name: &str,
-        initializer: &Expr,
-        then: &Expr,
-        location: Span,
-    ) -> CompilerResult<()> {
-        let local = Local {
-            name: name.to_string(),
-            depth: self.scope_depth,
-        };
-        self.locals.push(local);
-        let local_index = self.locals.len() - 1;
-
-        // Compile the initializer leaving it at the top of the stack.
-        self.compile(chunky, initializer)?;
-
-        Ok(())
     }
 
     fn compile_value(
@@ -142,8 +101,8 @@ impl Compiler {
         lhs: &Expr,
         rhs: &Expr,
     ) -> CompilerResult<()> {
-        self.compile(chunky, lhs);
-        self.compile(chunky, rhs);
+        self.compile(chunky, lhs)?;
+        self.compile(chunky, rhs)?;
 
         let bin_opcode: OpCode = match op {
             Op::Plus => OpCode::Add,
@@ -164,8 +123,79 @@ impl Compiler {
         chunky.write_opcode(bin_opcode, &[], location.clone());
         Ok(())
     }
+
+    fn compile_identifier(
+        &mut self,
+        chunky: &mut Chunk,
+        name: &str,
+        location: Span,
+    ) -> CompilerResult<()> {
+        // When an identifier is found find the it's index on the stack.
+        // I assume the variable exists as the typechecker already checks for that.
+        let (index, _) = self
+            .locals
+            .iter()
+            .enumerate()
+            .find(|(_, local)| local.name == name)
+            .unwrap();
+
+        chunky.write_opcode(OpCode::GetLocal, &[index as u8], location.clone());
+
+        Ok(())
+    }
+
+    fn compile_let(
+        &mut self,
+        chunky: &mut Chunk,
+        name: &str,
+        initializer: &Expr,
+        then: &Expr,
+        _location: Span,
+    ) -> CompilerResult<()> {
+        let local = Local {
+            name: name.to_string(),
+            depth: self.scope_depth,
+        };
+        self.locals.push(local);
+
+        // Compile the initializer leaving it at the top of the stack.
+        // then compile the next expression
+        self.compile(chunky, initializer)?;
+        self.compile(chunky, then)?;
+
+        Ok(())
+    }
+
+    fn compile_block(&mut self, chunky: &mut Chunk, inner_expr: &Expr) -> CompilerResult<()> {
+        self.begin_scope();
+        self.compile(chunky, inner_expr)?;
+        self.end_scope();
+
+        Ok(())
+    }
+
+    fn begin_scope(&mut self) {
+        self.scope_depth += 1;
+    }
+
+    fn end_scope(&mut self) {
+        if self.scope_depth > 0 {
+            self.scope_depth -= 1;
+
+            let prev_scope_start = self
+                .locals
+                .iter()
+                .enumerate()
+                .find(|(_, local)| local.depth > self.scope_depth);
+
+            if let Some((prev_scope_start, _)) = prev_scope_start {
+                self.locals.truncate(prev_scope_start)
+            }
+        }
+    }
 }
 
+#[derive(Debug)]
 pub enum CompilerErr {
     PlaceHolder,
 }
@@ -178,7 +208,7 @@ mod tests {
     use crate::value::Value;
     use crate::vm::chunk::Chunk;
 
-    use super::Compiler;
+    use super::{Compiler, Local};
 
     #[test]
     fn basic() {
@@ -196,9 +226,69 @@ mod tests {
         };
 
         let mut chunky = Chunk::new();
-        Compiler::new().compile(&mut chunky, &expr);
+        Compiler::new()
+            .compile(&mut chunky, &expr)
+            .expect("Compiler error");
 
         chunky.disassemble("Compiler result");
-        panic!()
+    }
+
+    #[test]
+    fn end_scope_works() {
+        let mut compy = Compiler::new();
+        let locals = vec![
+            Local {
+                name: "a".to_string(),
+                depth: 0,
+            },
+            Local {
+                name: "b".to_string(),
+                depth: 1,
+            },
+        ];
+
+        compy.scope_depth = locals.last().unwrap().depth;
+        compy.locals = locals;
+        compy.end_scope();
+        assert_eq!(compy.locals.len(), 1);
+    }
+
+    #[test]
+    fn end_scope_handles_empty_scopes() {
+        let mut compy = Compiler::new();
+        let locals = vec![
+            Local {
+                name: "a".to_string(),
+                depth: 0,
+            },
+            Local {
+                name: "b".to_string(),
+                depth: 1,
+            },
+            Local {
+                name: "c".to_string(),
+                depth: 1,
+            },
+            Local {
+                name: "d".to_string(),
+                depth: 3,
+            },
+        ];
+
+        compy.scope_depth = locals.last().unwrap().depth;
+        // Current scope == 3;
+        compy.locals = locals;
+
+        // Current scope: 2;
+        compy.end_scope();
+        assert_eq!(compy.locals.len(), 3);
+
+        // Current scope: 1;
+        compy.end_scope();
+        assert_eq!(compy.locals.len(), 3);
+
+        // Current scope: 0;
+        compy.end_scope();
+        assert_eq!(compy.locals.len(), 1);
     }
 }

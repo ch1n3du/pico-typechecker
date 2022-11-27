@@ -156,6 +156,6 @@ mod tests {
         chunky.write_opcode(OpCode::GetConstant, &[0], 0..1);
         let ins = chunky.get_instruction(0);
 
-        assert_eq!(ins, Some(69))
+        assert_eq!(ins, Some(1))
     }
 }

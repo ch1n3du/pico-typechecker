@@ -1,36 +1,48 @@
+use std::vec;
+
+use chumsky::Parser;
+
 use pico_typechecker::{
-    ast::{Expr, Op},
+    ast::Expr,
+    lexer::{lexer, Span},
+    parser,
+    tipo::Tipo,
+    token::Token,
     typechecker::*,
-    value::Value,
 };
+
+fn try_parsing(src: &str) -> Expr {
+    let toks: Vec<(Token, Span)> = lexer().parse(src).unwrap();
+    parser::expr_parser()
+        .parse(chumsky::Stream::from_iter(1..1, toks.into_iter()))
+        .unwrap()
+}
 
 #[test]
 fn dummy() {
-    let lhs: Box<Expr> = Box::new(Expr::Value {
-        value: Value::Int(12),
-        location: 0..1,
-    });
-    // let rhs: Box<Expr> = Box::new(Expr::Value(Value::Num(18)));
-    let rhs: Box<Expr> = Box::new(Expr::Value {
-        value: Value::Str(Box::new("Hello".to_string())),
-        location: 0..1,
-    });
-
-    let testing = Expr::Binary {
-        lhs,
-        op: Op::Plus,
-        rhs,
-        location: 0..1,
-    };
-
+    let expr = try_parsing(
+        "funk fib(n: int) -> int { 
+                if n < 2 {
+                    n
+                } else {
+                    fib(n-1) + fib(n-2)
+                }
+            }
+    ",
+    );
     let mut checker = TypeChecker::new();
-    let res = checker.check_expr(&testing);
 
-    match res {
-        Ok(v) => println!("Success: '{v}'"),
-        Err(e) => println!("Error: '{e}'"),
-    }
+    let tipo = checker
+        .check_expr(&expr)
+        .unwrap_or_else(|e| panic!("Type Error: {e}"));
 
-    panic!();
-    // assert_eq!(res, Tipo::int_type())
+    // panic!("Tipo: '{tipo}'");
+
+    assert_eq!(
+        tipo,
+        Tipo::Fn {
+            args: vec![Tipo::int_type()],
+            ret: Box::new(Tipo::int_type())
+        }
+    )
 }

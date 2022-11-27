@@ -7,6 +7,11 @@ pub enum Expr {
         value: String,
         location: Span,
     },
+    Call {
+        callee: Box<Expr>,
+        args: Vec<Expr>,
+        location: Span,
+    },
     Value {
         value: Value,
         location: Span,

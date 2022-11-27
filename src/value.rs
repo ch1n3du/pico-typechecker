@@ -18,7 +18,7 @@ impl Value {
             Str(_) => Tipo::string_type(),
             Bool(_) => Tipo::bool_type(),
             Unit => Tipo::unit_type(),
-            Fn(_) => todo!(),
+            Fn(f) => f.get_tipo(),
         }
     }
 
