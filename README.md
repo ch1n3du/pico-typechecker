@@ -42,14 +42,6 @@ funk collatz(n: int) -> int {
 }
 ```
 
-```python
-import os
-from os import path
-def file_structure(c:/chinedu/documents/music):
-
-# If it's a file return the string
-```
-
 ## Nov 2nd
 
 Got basic parsing working
