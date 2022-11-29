@@ -1,28 +1,49 @@
+use chumsky::Parser;
 use pico_typechecker::{
-    value::Value,
+    ast::Expr,
+    compiler::Compiler,
+    lexer::{lexer, Span},
+    parser,
+    token::Token,
+    typechecker::*,
     vm::{chunk::Chunk, opcode::OpCode, VM},
 };
 
 fn main() {
+    let expr = try_parsing(
+        "
+                if 1  < 2 {
+                    7
+                } else {
+                    9
+                }
+    ",
+    );
+    let mut checker = TypeChecker::new();
+
+    let tipo = checker
+        .check_expr(&expr)
+        .unwrap_or_else(|e| panic!("Type Error: {e}"));
+
+    println!("Tipo: {tipo}");
+
     let mut chunky = Chunk::new();
+    let mut compiler = Compiler::new();
 
-    // Set up constants
-    chunky.add_constant(Value::Int(8));
-    chunky.add_constant(Value::Int(8));
+    compiler.compile(&mut chunky, &expr).unwrap();
+    chunky.write_opcode(OpCode::Return, &[], 0..0);
 
-    // OP_CONSTANT 0;
-    chunky.write_opcode(OpCode::GetConstant, &[0], 0..1);
-
-    // OP_CONSTANT 0;
-    chunky.write_opcode(OpCode::GetConstantLong, &[0, 0, 1], 0..1);
-
-    chunky.write_opcode(OpCode::Multiply, &[], 0..1);
-
-    chunky.write_opcode(OpCode::Return, &[], 1..2);
-
-    // chunky.disassemble("Chunky");
+    chunky.disassemble("If/Else test");
 
     let mut vm = VM::new(chunky);
-    vm.run().expect("Wow, new error");
-    println!("{:?}", vm.values);
+    vm.run().unwrap();
+
+    println!("VM SNAPSHOT: {vm:?}");
+}
+
+fn try_parsing(src: &str) -> Expr {
+    let toks: Vec<(Token, Span)> = lexer().parse(src).unwrap();
+    parser::expr_parser()
+        .parse(chumsky::Stream::from_iter(1..1, toks.into_iter()))
+        .unwrap()
 }

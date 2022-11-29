@@ -33,7 +33,10 @@ impl VM {
             let opcode: OpCode = self.read_opcode()?;
 
             match opcode {
-                Return => return Ok(()),
+                Return => {
+                    println!("Returned: {}", self.values[0]);
+                    return Ok(());
+                }
                 GetConstant => self.op_constant(),
                 GetConstantLong => self.op_constant_long(),
                 SetLocal => self.set_local(),

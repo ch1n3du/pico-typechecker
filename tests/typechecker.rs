@@ -34,25 +34,9 @@ fn dummy() {
     );
     let mut checker = TypeChecker::new();
 
-    let mut chunky = Chunk::new();
-    let mut compiler = Compiler::new();
-
-    let code = compiler.compile(&mut chunky, &expr).unwrap();
-    chunky.write_opcode(OpCode::Return, &[], 0..0);
-
-    chunky.disassemble("If/Else test");
-
-    let mut vm = VM::new(chunky);
-    vm.run().unwrap();
-
-    println!("{vm:?}");
-    // panic!();
-
     let tipo = checker
         .check_expr(&expr)
         .unwrap_or_else(|e| panic!("Type Error: {e}"));
-
-    // panic!("Tipo: '{tipo}'");
 
     assert_eq!(tipo, Tipo::int_type())
 }

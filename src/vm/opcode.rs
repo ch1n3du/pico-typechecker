@@ -91,6 +91,21 @@ impl OpCode {
 
                 Some(format!(" {index}"))
             }
+            Jump => {
+                let index = chunk.code[offset + 1];
+
+                Some(format!(" {index}"))
+            }
+            JumpIfTrue => {
+                let index = chunk.code[offset + 1];
+
+                Some(format!(" {index}"))
+            }
+            JumpIfFalse => {
+                let index = chunk.code[offset + 1];
+
+                Some(format!(" {index}"))
+            }
             _ => None,
         };
 
