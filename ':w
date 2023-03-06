@@ -32,32 +32,20 @@ impl Compiler {
     pub fn compile(&mut self, chunky: &mut Chunk, expr: &Expr) -> CompilerResult<()> {
         match expr {
             Expr::Unit(location) => {
-                chunky.write_opcode(OpCode::Unit, &[], location.clone());
+                chunky.write_opcode(OpCode::Unit, &[], location);
                 Ok(())
             }
             Expr::Int { value, location } => {
-                let raw_int = value.parse::<i64>().unwrap();
-                chunky.add_constant(Value::Int(raw_int));
+                let raw_int: i64 = value.parse().unwrap();
+                let value = Value::Int(raw_int);
+                chunky.add_constant(value);
 
-                let index: u8 = (chunky.constants.len() - 1) as u8;
-                chunky.write_opcode(OpCode::GetConstant, &[index], location.clone());
-                Ok(())
-            }
-            Expr::Str { value, location } => {
-                chunky.add_constant(Value::Str(Box::new(value.to_string())));
-                let index: u8 = (chunky.constants.len() - 1) as u8;
-
-                chunky.write_opcode(OpCode::GetConstant, &[index], location.clone());
-                Ok(())
-            }
-            Expr::Bool { value, location } => {
-                let raw_bool: bool = value.parse().unwrap();
-                chunky.add_constant(Value::Bool(raw_bool));
-                let index: u8 = (chunky.constants.len() - 1) as u8;
-
-                chunky.write_opcode(OpCode::GetConstant, &[index], location.clone());
-                Ok(())
-            }
+                let index = chunky.constants.len() - 1;
+                chunky.write_opcode(OpCode::GetConstant, &[], span)
+                todo!()
+            },
+            Expr::Str { value, location } => todo!(),
+            Expr::Bool { value, location } => todo!(),
             Expr::Unary { op, rhs, location } => {
                 self.compiler_unary(chunky, location.clone(), *op, rhs)
             }

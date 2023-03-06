@@ -37,7 +37,7 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
     ));
 
     let number = text::int(10)
-        .map(|value: String| Token::Number { value })
+        .map(|value: String| Token::Int { value })
         .labelled("number");
 
     let boolean = just("true")
@@ -62,7 +62,7 @@ pub fn lexer() -> impl Parser<char, Vec<Spanned<Token>>, Error = Simple<char>> {
         .ignore_then(filter(|c| *c != '\\' && *c != '"').or(escape).repeated())
         .then_ignore(just('"'))
         .collect::<String>()
-        .map(|value| Token::String { value })
+        .map(|value| Token::Str { value })
         .labelled("string");
 
     let keyword = text::ident().map(|s: String| match s.as_str() {

@@ -3,7 +3,6 @@ use std::collections::HashMap;
 
 use crate::{
     ast::{Expr, Op},
-    function::Function,
     tipo::Tipo,
 };
 pub struct TypeChecker {
@@ -19,6 +18,10 @@ impl TypeChecker {
 
     pub fn check_expr(&mut self, expr: &Expr) -> TypeResult<Tipo> {
         match expr {
+            Expr::Int { .. } => Ok(Tipo::int_type()),
+            Expr::Str { .. } => Ok(Tipo::string_type()),
+            Expr::Bool { .. } => Ok(Tipo::bool_type()),
+            Expr::Unit(..) => Ok(Tipo::unit_type()),
             Expr::Identifier { value, .. } => self.get_var_tipo(&value),
             Expr::Value { value, .. } => Ok(value.get_tipo()),
             Expr::Grouping { expr, .. } => self.check_expr(&expr),
@@ -38,16 +41,28 @@ impl TypeChecker {
                 ..
             } => self.check_if_expr(condition, truthy_branch, falsy_branch),
             Expr::Block { expr, .. } => self.check_expr(&expr),
-            Expr::Fn { fn_, .. } => self.check_funk(fn_),
-            Expr::Funk { name, fn_, .. } => {
+            Expr::Fn {
+                params,
+                return_tipo,
+                body,
+                ..
+            } => self.check_funk(params, return_tipo, &body),
+            Expr::Funk {
+                name,
+                params,
+                return_tipo,
+                body,
+                then,
+                location,
+            } => {
                 // Put the expected function type in the scope to handle recursive functions
-                let expected_tipo = fn_.get_tipo();
-                self.set_var_tipo(name, expected_tipo);
+                let param_tipos = params.iter().map(|(_, tipo)| tipo.clone()).collect();
+                let expected_tipo = Tipo::new_fn(param_tipos, return_tipo.clone());
+                self.set_var_tipo(name, expected_tipo.clone());
 
                 // Check the inner `Function` struct
-                let tipo = self.check_funk(fn_)?;
-                self.set_var_tipo(name, tipo.clone());
-                Ok(tipo)
+                self.check_funk(params, return_tipo, body)?;
+                Ok(expected_tipo)
             }
             Expr::Call { callee, args, .. } => self.check_call(callee, args),
         }
@@ -84,10 +99,14 @@ impl TypeChecker {
     }
 
     /// There's a small bug with using variables in local scopes
-    fn check_funk(&mut self, funk: &Function) -> TypeResult<Tipo> {
+    fn check_funk(
+        &mut self,
+        params: &Vec<(String, Tipo)>,
+        return_tipo: &Tipo,
+        body: &Expr,
+    ) -> TypeResult<Tipo> {
         self.begin_scope();
 
-        let Function { params, ret, body } = funk;
         let mut tipo_params: Vec<Tipo> = Vec::new();
 
         for (name, tipo) in params {
@@ -98,11 +117,11 @@ impl TypeChecker {
         let actual_ret = self.check_expr(body)?;
 
         self.end_scope();
-        if actual_ret == *ret {
-            Ok(Tipo::new_fn(tipo_params, ret.clone()))
+        if actual_ret == *return_tipo {
+            Ok(Tipo::new_fn(tipo_params, return_tipo.clone()))
         } else {
             Err(TypeError::Basic(format!(
-                "Expected return type of {ret}, got {actual_ret}."
+                "Expected return type of {return_tipo}, got {actual_ret}."
             )))
         }
     }

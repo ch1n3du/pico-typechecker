@@ -35,10 +35,6 @@ impl Chunk {
     /// Gets a constant at a given index
     pub fn get_constant(&self, index: usize) -> Option<&Value> {
         if index >= self.constants.len() {
-            // panic!(
-            // "Tried to access a constant at index ({index}) out of bounds array {:?}",
-            // self.constants
-            // )
             None
         } else {
             Some(&self.constants[index])

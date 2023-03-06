@@ -2,7 +2,20 @@ use crate::{function::Function, lexer::Span, tipo::Tipo, value::Value};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Expr {
-    /// Variable identifier like "x".
+    // Literals
+    Int {
+        value: String,
+        location: Span,
+    },
+    Str {
+        value: String,
+        location: Span,
+    },
+    Bool {
+        value: String,
+        location: Span,
+    },
+    Unit(Span),
     Identifier {
         value: String,
         location: Span,
@@ -31,15 +44,15 @@ pub enum Expr {
         rhs: Box<Expr>,
         location: Span,
     },
-    Fn {
-        fn_: Function,
-        location: Span,
-    },
     Let {
         name: String,
         let_tipo: Option<Tipo>,
         initializer: Box<Expr>,
         then: Box<Expr>,
+        location: Span,
+    },
+    Block {
+        expr: Box<Expr>,
         location: Span,
     },
     If {
@@ -48,14 +61,18 @@ pub enum Expr {
         falsy_branch: Box<Expr>,
         location: Span,
     },
-    Funk {
-        name: String,
-        fn_: Function,
-        then: Box<Expr>,
+    Fn {
+        params: Vec<(String, Tipo)>,
+        return_tipo: Tipo,
+        body: Box<Expr>,
         location: Span,
     },
-    Block {
-        expr: Box<Expr>,
+    Funk {
+        name: String,
+        params: Vec<(String, Tipo)>,
+        return_tipo: Tipo,
+        body: Box<Expr>,
+        then: Box<Expr>,
         location: Span,
     },
 }
@@ -97,3 +114,4 @@ impl std::fmt::Display for Op {
         }
     }
 }
+// EOF

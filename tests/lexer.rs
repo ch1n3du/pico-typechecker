@@ -34,7 +34,7 @@ fn basic() {
         Token::Identifier {
             value: "this_is_an_identifier".to_string(),
         },
-        Token::Number {
+        Token::Int {
             value: "1234".to_string(),
         },
         Token::Bool {
@@ -43,7 +43,7 @@ fn basic() {
         Token::Bool {
             value: "false".to_string(),
         },
-        Token::String {
+        Token::Str {
             value: "this is a string".to_string(),
         },
         Token::Fn,

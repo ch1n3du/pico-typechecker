@@ -34,18 +34,20 @@ use crate::{
 
 pub fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
     recursive(|raw_expr| {
-        let value = select! {
-            Token::Unit => Value::Unit,
-            Token::Number { value } => Value::Int(value.parse().unwrap()),
-            Token::String { value } => Value::Str(Box::new(value)),
-            Token::Bool { value } => Value::Bool(value.parse().unwrap()),
-        }
-        .map_with_span(|value: Value, location: Span| Expr::Value { value, location });
+        let int = select! { Token::Int {value} => value}
+            .map_with_span(|value, location| Expr::Int { value, location });
+        let string = select! { Token::Str {value} => value}
+            .map_with_span(|value, location| Expr::Str { value, location });
+        let bool_ = select! { Token::Bool {value} => value}
+            .map_with_span(|value, location| Expr::Bool { value, location });
+        let unit = just(Token::Unit).map_with_span(|_, location| Expr::Unit(location));
 
         let raw_ident = select! {Token::Identifier { value } => value.clone()};
         let ident = raw_ident
             .map_with_span(|value: String, location: Span| Expr::Identifier { value, location })
             .labelled("Identifier");
+
+        let value = choice((int, string, bool_, unit));
 
         let grouping = raw_expr
             .clone()
@@ -297,35 +299,38 @@ pub fn expr_parser() -> impl Parser<Token, Expr, Error = Simple<Token>> {
         let funk = params
             .then(return_annotation)
             .then(block.clone())
-            .map(|((params, ret), body)| {
-                let ret = ret.unwrap_or(Tipo::unit_type());
-
-                Function {
-                    params,
-                    ret,
-                    body: Box::new(body),
-                }
-            })
+            .map(|((params, ret), body)| (params, ret.unwrap_or(Tipo::unit_type()), body))
             .labelled("Function body");
+
         let funk_decl = just(Token::Funk)
             .ignore_then(raw_ident.clone())
             .then(funk.clone())
             .then(then_expr.clone())
             .map_with_span(
-                |((name, funk), then): ((String, Function), Expr), location| Expr::Funk {
-                    name,
-                    fn_: funk,
-                    location,
-                    then: Box::new(then),
+                |((name, (params, return_tipo, body)), then): (
+                    (String, (Vec<(String, Tipo)>, Tipo, Expr)),
+                    Expr,
+                ),
+                 location| {
+                    Expr::Funk {
+                        name,
+                        params,
+                        return_tipo,
+                        body: Box::new(body),
+                        location,
+                        then: Box::new(then),
+                    }
                 },
             );
 
-        let fn_ = just(Token::Fn)
-            .ignore_then(funk)
-            .map_with_span(|fn_, location| Expr::Value {
-                value: Value::Fn(Box::new(fn_)),
+        let fn_ = just(Token::Fn).ignore_then(funk).map_with_span(
+            |(params, return_tipo, body), location| Expr::Fn {
+                params,
+                return_tipo,
+                body: Box::new(body),
                 location,
-            });
+            },
+        );
 
         choice((block, let_, logical_or, if_, funk_decl, fn_))
     })

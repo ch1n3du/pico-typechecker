@@ -1,8 +1,8 @@
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Token {
     Identifier { value: String },
-    Number { value: String },
-    String { value: String },
+    Int { value: String },
+    Str { value: String },
     Bool { value: String },
     Plus,
     Minus,
