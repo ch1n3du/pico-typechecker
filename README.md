@@ -18,10 +18,6 @@ The current roadmap of the program is:
 - [ ] Thoroughly test typechecker.
 - [ ] Write REPL.
 
-## How it works
-
-This is a very simple typechecker with limited inference.
-
 ## Syntax
 
 ```rust
