@@ -1,9 +1,9 @@
 # pico-typechecker
 
-This is a smol project I'm messing around with.
+This is a smol project I'm messing around with,
 I've been thinking about how typecheckers work and what better way to learn about typecheckers than to write one.
+The code for the typechecker is in [typechecker.rs](src/typechecker.rs).
 
-Also I've been meaning to learn [Chumsky](https://github.com/zesterer/chumsky).
 
 ## Goals
 
@@ -22,16 +22,13 @@ The current roadmap of the program is:
 
 This is a very simple typechecker with limited inference.
 
-## Showcase
+## Syntax
 
 ```rust
 let x = "stringy";
 let y = 1213;
 
-
 funk collatz(n: int) -> int {
-  print(n);
-
   if n == 1 {
     1
   } else if (n % 2) == 0{
@@ -40,13 +37,6 @@ funk collatz(n: int) -> int {
     collatz(n * 3 + 1)
   }
 }
+
+print(collatz(7));
 ```
-
-## Nov 2nd
-
-Got basic parsing working
-
-## Update \[21/11/22\]
-
-This project has kind of grown in scope, the current plan is to finish the ByteCode VM to allow faster iteration.
-Also I'm getting a better grip on how type-inference and might do more on that in future.
